@@ -31,7 +31,7 @@ export default function SignupPage({ onLogin }) {
         body: form
       });
       onLogin(result);
-      navigate(getDefaultRoute(result.user.systemRole), { replace: true });
+      navigate(getDefaultRoute(result.user), { replace: true });
     } catch (requestError) {
       setError(requestError.message);
     } finally {

@@ -1,71 +1,46 @@
 const express = require("express");
 const prisma = require("../db");
+const { ACTIVE_ORDER_STATUSES, mapOrder } = require("../utils/orders");
+const { listMenuItems } = require("../utils/menu");
+const { PosServiceError, createOrAppendTableOrder, createPickupOrder, orderInclude } = require("../services/pos.service");
 
 const router = express.Router();
-const ACTIVE_ORDER_STATUSES = ["PENDING", "PREPARING", "READY"];
 
-function formatOrderCode(orderCode) {
-  return `#${String(orderCode || "").slice(-6).toUpperCase()}`;
-}
-
-function mapMenuItem(item) {
+function mapPublicRestaurant(restaurant) {
   return {
-    id: item.id,
-    name: item.name,
-    category: item.category,
-    description: item.description,
-    photoUrl: item.photoUrl,
-    priceCents: item.priceCents,
-    price: item.priceCents / 100
+    id: restaurant.id,
+    name: restaurant.name,
+    slug: restaurant.slug,
+    phone: restaurant.phone,
+    logoUrl: restaurant.logoUrl
   };
 }
 
-function mapOrderItem(item) {
-  return {
-    id: item.id,
-    menuItemId: item.menuItemId,
-    name: item.nameSnapshot,
-    priceCents: item.priceCents,
-    price: item.priceCents / 100,
-    quantity: item.quantity,
-    notes: item.notes
-  };
-}
+function validatePublicRestaurant(restaurant, options = {}) {
+  if (!restaurant) {
+    return { status: 404, message: "Restaurant not found." };
+  }
 
-function mapOrder(order) {
-  return {
-    id: order.id,
-    orderCode: formatOrderCode(order.orderCode),
-    status: order.status,
-    customerName: order.customerName,
-    notes: order.notes,
-    totalCents: order.totalCents,
-    total: order.totalCents / 100,
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt,
-    payment: order.payment
-      ? {
-          id: order.payment.id,
-          receiptCode: formatOrderCode(order.payment.receiptCode),
-          paymentMethod: order.payment.paymentMethod,
-          totalCents: order.payment.totalCents,
-          total: order.payment.totalCents / 100,
-          createdAt: order.payment.createdAt
-        }
-      : null,
-    table: order.table
-      ? {
-          id: order.table.id,
-          name: order.table.name
-        }
-      : null,
-    items: (order.items || []).map(mapOrderItem)
-  };
+  if (!restaurant.subscription || restaurant.subscription.status !== "ACTIVE") {
+    return { status: 403, message: "Ordering is not available for this restaurant yet." };
+  }
+
+  if (!restaurant.publicOrderingEnabled) {
+    return { status: 403, message: "Public ordering is disabled for this restaurant." };
+  }
+
+  if (options.requirePickupEnabled && !restaurant.pickupEnabled) {
+    return { status: 403, message: "Pickup ordering is disabled for this restaurant." };
+  }
+
+  return null;
 }
 
 async function getTableContext(tableId) {
   const table = await prisma.diningTable.findUnique({
-    where: { id: tableId },
+    where: {
+      id: tableId
+    },
     include: {
       restaurant: {
         include: {
@@ -79,158 +54,206 @@ async function getTableContext(tableId) {
     return { error: { status: 404, message: "Table not found." } };
   }
 
-  if (!table.restaurant.subscription || table.restaurant.subscription.status !== "ACTIVE") {
-    return { error: { status: 403, message: "Ordering is not available for this restaurant yet." } };
+  const error = validatePublicRestaurant(table.restaurant);
+  if (error) {
+    return { error };
   }
 
   return { table };
 }
 
+async function getRestaurantContextBySlug(tenantSlug, options = {}) {
+  const restaurant = await prisma.restaurant.findFirst({
+    where: {
+      slug: String(tenantSlug || "").trim().toLowerCase()
+    },
+    include: {
+      subscription: true
+    }
+  });
+
+  const error = validatePublicRestaurant(restaurant, options);
+  if (error) {
+    return { error };
+  }
+
+  return { restaurant };
+}
+
+function handleServiceError(res, error, next) {
+  if (error instanceof PosServiceError) {
+    return res.status(error.status).json({
+      message: error.message,
+      details: error.details || undefined
+    });
+  }
+
+  return next(error);
+}
+
 router.get("/tables/:tableId/menu", async (req, res, next) => {
   try {
-    const { tableId } = req.params;
-    const { table, error } = await getTableContext(tableId);
-
+    const { table, error } = await getTableContext(req.params.tableId);
     if (error) {
       return res.status(error.status).json({ message: error.message });
     }
 
-    const items = await prisma.menuItem.findMany({
-      where: {
-        restaurantId: table.restaurantId,
-        isAvailable: true
-      },
-      orderBy: [{ category: "asc" }, { name: "asc" }]
-    });
+    const [products, activeOrder] = await Promise.all([
+      listMenuItems(prisma, table.restaurantId, {
+        includeUnavailable: true
+      }),
+      prisma.order.findFirst({
+        where: {
+          tableId: table.id,
+          status: {
+            in: ACTIVE_ORDER_STATUSES
+          }
+        },
+        include: orderInclude,
+        orderBy: [{ createdAt: "desc" }]
+      })
+    ]);
 
     return res.json({
-      restaurant: {
-        id: table.restaurant.id,
-        name: table.restaurant.name
-      },
+      restaurant: mapPublicRestaurant(table.restaurant),
       table: {
         id: table.id,
         name: table.name,
         seats: table.seats,
         status: table.status
       },
-      items: items.map(mapMenuItem)
+      items: products,
+      products,
+      activeOrder: mapOrder(activeOrder)
     });
   } catch (error) {
-    return next(error);
+    return handleServiceError(res, error, next);
   }
 });
 
 router.post("/tables/:tableId/orders", async (req, res, next) => {
   try {
-    const { tableId } = req.params;
-    const { customerName, notes, items } = req.body;
-    const { table, error } = await getTableContext(tableId);
+    const { table, error } = await getTableContext(req.params.tableId);
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    const order = await createOrAppendTableOrder({
+      restaurantId: table.restaurantId,
+      tableId: table.id,
+      items: req.body?.items,
+      source: "QR"
+    });
+
+    return res.status(201).json({
+      message: "Order placed successfully.",
+      order
+    });
+  } catch (error) {
+    return handleServiceError(res, error, next);
+  }
+});
+
+router.get("/tenants/:tenantSlug/menu", async (req, res, next) => {
+  try {
+    const { restaurant, error } = await getRestaurantContextBySlug(req.params.tenantSlug, {
+      requirePickupEnabled: true
+    });
 
     if (error) {
       return res.status(error.status).json({ message: error.message });
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: "items must contain at least one product." });
-    }
-
-    const itemIds = [...new Set(items.map((item) => String(item?.menuItemId || "").trim()).filter(Boolean))];
-    if (itemIds.length === 0) {
-      return res.status(400).json({ message: "Each order item must include menuItemId." });
-    }
-
-    const menuItems = await prisma.menuItem.findMany({
-      where: {
-        id: { in: itemIds },
-        restaurantId: table.restaurantId,
-        isAvailable: true
-      }
+    const products = await listMenuItems(prisma, restaurant.id, {
+      includeUnavailable: true
     });
 
-    const menuItemMap = new Map(menuItems.map((item) => [item.id, item]));
-    const orderItems = [];
-    let totalCents = 0;
+    return res.json({
+      restaurant: mapPublicRestaurant(restaurant),
+      fulfillment: {
+        type: "PICKUP"
+      },
+      items: products,
+      products
+    });
+  } catch (error) {
+    return handleServiceError(res, error, next);
+  }
+});
 
-    for (const item of items) {
-      const menuItemId = String(item?.menuItemId || "").trim();
-      const quantity = Number(item?.quantity);
-      const itemNotes = String(item?.notes || "").trim();
+router.post("/tenants/:tenantSlug/orders", async (req, res, next) => {
+  try {
+    const { restaurant, error } = await getRestaurantContextBySlug(req.params.tenantSlug, {
+      requirePickupEnabled: true
+    });
 
-      if (!menuItemId) {
-        return res.status(400).json({ message: "Each order item must include menuItemId." });
-      }
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
-        return res.status(400).json({ message: "quantity must be a whole number between 1 and 20." });
-      }
-
-      const menuItem = menuItemMap.get(menuItemId);
-      if (!menuItem) {
-        return res.status(400).json({ message: "One or more selected menu items are unavailable." });
-      }
-
-      orderItems.push({
-        menuItemId: menuItem.id,
-        nameSnapshot: menuItem.name,
-        priceCents: menuItem.priceCents,
-        quantity,
-        notes: itemNotes || null
-      });
-      totalCents += menuItem.priceCents * quantity;
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
     }
 
-    const createdOrder = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.create({
-        data: {
-          restaurantId: table.restaurantId,
-          tableId: table.id,
-          customerName: String(customerName || "").trim() || null,
-          notes: String(notes || "").trim() || null,
-          totalCents,
-          items: {
-            create: orderItems
-          }
-        },
-        include: {
-          table: true,
-          items: true
-        }
-      });
-
-      await tx.diningTable.update({
-        where: { id: table.id },
-        data: {
-          status: "OCCUPIED"
-        }
-      });
-
-      return order;
+    const order = await createPickupOrder({
+      restaurantId: restaurant.id,
+      items: req.body?.items,
+      customerName: req.body?.customerName,
+      customerPhone: req.body?.customerPhone,
+      notes: req.body?.notes,
+      source: "PICKUP"
     });
 
     return res.status(201).json({
-      message: "Order placed successfully.",
-      order: mapOrder(createdOrder)
+      message: "Pickup order created successfully.",
+      order
     });
   } catch (error) {
-    return next(error);
+    return handleServiceError(res, error, next);
+  }
+});
+
+router.get("/tenants/:tenantSlug/orders/:orderId", async (req, res, next) => {
+  try {
+    const { restaurant, error } = await getRestaurantContextBySlug(req.params.tenantSlug, {
+      requirePickupEnabled: true
+    });
+
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        publicId: req.params.orderId,
+        restaurantId: restaurant.id,
+        orderType: "PICKUP"
+      },
+      include: orderInclude
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    return res.json({
+      restaurant: mapPublicRestaurant(restaurant),
+      order: mapOrder(order)
+    });
+  } catch (error) {
+    return handleServiceError(res, error, next);
   }
 });
 
 router.get("/orders/:orderId", async (req, res, next) => {
   try {
-    const { orderId } = req.params;
-
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+    const order = await prisma.order.findFirst({
+      where: {
+        publicId: req.params.orderId
+      },
       include: {
-        table: true,
+        ...orderInclude,
         restaurant: {
           include: {
             subscription: true
           }
-        },
-        items: true,
-        payment: true
+        }
       }
     });
 
@@ -238,34 +261,17 @@ router.get("/orders/:orderId", async (req, res, next) => {
       return res.status(404).json({ message: "Order not found." });
     }
 
-    if (!order.restaurant.subscription || order.restaurant.subscription.status !== "ACTIVE") {
-      return res.status(403).json({ message: "Ordering is not available for this restaurant yet." });
+    const error = validatePublicRestaurant(order.restaurant);
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
     }
 
-    const hasOpenOrders = await prisma.order.count({
-      where: {
-        tableId: order.tableId,
-        status: {
-          in: ACTIVE_ORDER_STATUSES
-        }
-      }
-    });
-
     return res.json({
-      order: mapOrder(order),
-      restaurant: {
-        id: order.restaurant.id,
-        name: order.restaurant.name
-      },
-      table: {
-        id: order.table.id,
-        name: order.table.name,
-        status: order.table.status
-      },
-      hasOpenOrders: hasOpenOrders > 0
+      restaurant: mapPublicRestaurant(order.restaurant),
+      order: mapOrder(order)
     });
   } catch (error) {
-    return next(error);
+    return handleServiceError(res, error, next);
   }
 });
 

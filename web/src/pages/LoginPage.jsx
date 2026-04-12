@@ -21,7 +21,7 @@ export default function LoginPage({ onLogin }) {
         body: { email, password }
       });
       onLogin(result);
-      navigate(getDefaultRoute(result.user.systemRole), { replace: true });
+      navigate(getDefaultRoute(result.user), { replace: true });
     } catch (requestError) {
       setError(requestError.message);
     } finally {

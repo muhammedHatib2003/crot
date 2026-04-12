@@ -6,7 +6,11 @@ const authRoutes = require("./routes/auth");
 const plansRoutes = require("./routes/plans");
 const ownerRoutes = require("./routes/owner");
 const adminRoutes = require("./routes/admin");
-const employeeRoutes = require("./routes/employee");
+const restaurantRoutes = require("./routes/restaurant");
+const kitchenRoutes = require("./routes/kitchen");
+const paymentRoutes = require("./routes/payment");
+const waiterRoutes = require("./routes/waiter");
+const inventoryRoutes = require("./routes/inventory");
 const publicRoutes = require("./routes/public");
 
 const app = express();
@@ -27,7 +31,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/plans", plansRoutes);
 app.use("/api/owner", ownerRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/employee", employeeRoutes);
+app.use("/api/kitchen", kitchenRoutes);
+app.use("/api/cashier", paymentRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/waiter", waiterRoutes);
+app.use("/api/inventory", inventoryRoutes);
+app.use("/api/restaurant", restaurantRoutes);
 app.use("/api/public", publicRoutes);
 
 app.use((req, res) => {

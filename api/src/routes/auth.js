@@ -3,6 +3,7 @@ const prisma = require("../db");
 const { hashPassword, comparePassword } = require("../utils/password");
 const { signUserToken } = require("../utils/token");
 const { authenticate } = require("../middleware/auth");
+const { ensureUniqueRestaurantSlug } = require("../utils/slugs");
 
 const router = express.Router();
 
@@ -24,8 +25,11 @@ function sanitizeUser(user) {
       ? {
           id: user.restaurant.id,
           name: user.restaurant.name,
+          slug: user.restaurant.slug,
           phone: user.restaurant.phone,
-          logoUrl: user.restaurant.logoUrl
+          logoUrl: user.restaurant.logoUrl,
+          publicOrderingEnabled: user.restaurant.publicOrderingEnabled,
+          pickupEnabled: user.restaurant.pickupEnabled
         }
       : null
   };
@@ -57,9 +61,12 @@ router.post("/owner-signup", async (req, res, next) => {
     const passwordHash = await hashPassword(password);
 
     const owner = await prisma.$transaction(async (tx) => {
+      const restaurantSlug = await ensureUniqueRestaurantSlug(tx, restaurantName);
+
       const restaurant = await tx.restaurant.create({
         data: {
           name: String(restaurantName).trim(),
+          slug: restaurantSlug,
           phone: restaurantPhone ? String(restaurantPhone).trim() : null
         }
       });

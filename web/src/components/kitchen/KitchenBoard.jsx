@@ -1,0 +1,52 @@
+import OrderColumn from "./OrderColumn";
+
+const BOARD_COLUMNS = [
+  { key: "PENDING", title: "Pending" },
+  { key: "PREPARING", title: "Preparing" },
+  { key: "READY", title: "Ready" }
+];
+
+export default function KitchenBoard({ groupedOrders, busyOrderId, filterType, onFilterChange, onAction }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-4 flex flex-wrap gap-2">
+        {[
+          { key: "ALL", label: "All orders" },
+          { key: "TABLE", label: "Table" },
+          { key: "PICKUP", label: "Pickup" }
+        ].map((filter) => {
+          const active = filter.key === filterType;
+
+          return (
+            <button
+              key={filter.key}
+              className={[
+                "rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.18em] transition",
+                active
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+              ].join(" ")}
+              onClick={() => onFilterChange(filter.key)}
+              type="button"
+            >
+              {filter.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-3">
+        {BOARD_COLUMNS.map((column) => (
+          <OrderColumn
+            key={column.key}
+            busyOrderId={busyOrderId}
+            onAction={onAction}
+            orders={groupedOrders[column.key] || []}
+            status={column.key}
+            title={column.title}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

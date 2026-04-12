@@ -3,12 +3,137 @@
 @tailwind utilities;
 
 :root {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Aptos", "Trebuchet MS", "Segoe UI", sans-serif;
+  color-scheme: light;
+  background: #f4f6f5;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(135deg, #f3f8f6 0%, #deeee7 100%);
+  background: #f4f6f5;
   color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(75, 154, 117, 0.24);
+}
+
+@keyframes cashier-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cashier-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cashier-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(244, 63, 94, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(244, 63, 94, 0.1);
+  }
+}
+
+@keyframes cashier-shine {
+  from {
+    transform: translateX(-160%);
+  }
+
+  to {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes cashier-total-pop {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.cashier-table-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.cashier-table-card:hover {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.cashier-table-card--ready {
+  animation: cashier-glow 2.2s ease-in-out infinite;
+}
+
+.cashier-ready-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 9999px;
+  background: #e11d48;
+  box-shadow: 0 0 0 rgba(225, 29, 72, 0.3);
+  animation: cashier-glow 1.8s ease-in-out infinite;
+}
+
+.cashier-modal-backdrop {
+  animation: cashier-fade-in 180ms ease-out;
+}
+
+.cashier-modal-panel {
+  animation: cashier-pop-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.cashier-payment-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.cashier-payment-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-160%);
+  animation: cashier-shine 2.6s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.cashier-payment-button:disabled::after {
+  animation: none;
+}
+
+.cashier-total-pop {
+  animation: cashier-total-pop 1.9s ease-in-out infinite;
+  transform-origin: left center;
 }

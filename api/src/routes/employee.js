@@ -1,33 +1,29 @@
 const express = require("express");
 const prisma = require("../db");
 const { authenticate, requireRoles } = require("../middleware/auth");
+const {
+  InventoryError,
+  consumeInventoryForOrder,
+  getInventoryDashboard,
+  runSerializableTransaction
+} = require("../services/inventory");
+const {
+  ACTIVE_ORDER_STATUSES,
+  mapOrder,
+  mapPayment,
+  getAllowedNextStatuses,
+  getVisibleStatusesForRole,
+  buildOrderStatusUpdateData
+} = require("../utils/orders");
 
 const router = express.Router();
 const ALLOWED_TABLE_STATUSES = new Set(["AVAILABLE", "OCCUPIED", "RESERVED", "CLEANING"]);
 const ALLOWED_PAYMENT_METHODS = new Set(["CASH", "CARD"]);
-const ACTIVE_ORDER_STATUSES = ["PENDING", "PREPARING", "READY"];
-const ROLE_ORDER_STATUS_ACCESS = {
-  chef: ["PENDING", "PREPARING", "READY"],
-  cashier: ["READY"]
-};
-const ROLE_ORDER_TRANSITIONS = {
-  chef: {
-    PENDING: ["PREPARING"],
-    PREPARING: ["READY"]
-  },
-  cashier: {
-    READY: ["PAID"]
-  }
-};
 
 router.use(authenticate, requireRoles("EMPLOYEE"));
 
 function normalizeEmployeeRole(employeeRole) {
   return String(employeeRole || "").trim().toLowerCase();
-}
-
-function formatOrderCode(orderCode) {
-  return `#${String(orderCode || "").slice(-6).toUpperCase()}`;
 }
 
 function mapTable(table) {
@@ -41,73 +37,6 @@ function mapTable(table) {
   };
 }
 
-function mapOrderItem(item) {
-  return {
-    id: item.id,
-    menuItemId: item.menuItemId,
-    name: item.nameSnapshot,
-    priceCents: item.priceCents,
-    price: item.priceCents / 100,
-    quantity: item.quantity,
-    notes: item.notes
-  };
-}
-
-function mapOrder(order) {
-  return {
-    id: order.id,
-    orderCode: formatOrderCode(order.orderCode),
-    status: order.status,
-    customerName: order.customerName,
-    notes: order.notes,
-    totalCents: order.totalCents,
-    total: order.totalCents / 100,
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt,
-    payment: order.payment
-      ? {
-          id: order.payment.id,
-          receiptCode: formatOrderCode(order.payment.receiptCode),
-          paymentMethod: order.payment.paymentMethod,
-          totalCents: order.payment.totalCents,
-          total: order.payment.totalCents / 100,
-          createdAt: order.payment.createdAt
-        }
-      : null,
-    table: order.table
-      ? {
-          id: order.table.id,
-          name: order.table.name,
-          status: order.table.status
-        }
-      : null,
-    items: (order.items || []).map(mapOrderItem)
-  };
-}
-
-function mapPayment(payment) {
-  return {
-    id: payment.id,
-    receiptCode: formatOrderCode(payment.receiptCode),
-    paymentMethod: payment.paymentMethod,
-    totalCents: payment.totalCents,
-    total: payment.totalCents / 100,
-    createdAt: payment.createdAt,
-    table: payment.table
-      ? {
-          id: payment.table.id,
-          name: payment.table.name
-        }
-      : null,
-    orders: (payment.orders || []).map((order) => ({
-      id: order.id,
-      orderCode: formatOrderCode(order.orderCode),
-      totalCents: order.totalCents,
-      total: order.totalCents / 100
-    }))
-  };
-}
-
 async function getEmployeeContext(userId) {
   return prisma.user.findUnique({
     where: { id: userId },
@@ -118,11 +47,11 @@ async function getEmployeeContext(userId) {
   });
 }
 
-function getAllowedNextStatuses(employeeRole, currentStatus) {
-  return ROLE_ORDER_TRANSITIONS[employeeRole]?.[currentStatus] || [];
-}
-
 async function syncTableStatus(transaction, tableId) {
+  if (!tableId) {
+    return;
+  }
+
   const activeOrdersCount = await transaction.order.count({
     where: {
       tableId,
@@ -140,6 +69,14 @@ async function syncTableStatus(transaction, tableId) {
   });
 }
 
+function canCashierCompleteOrder(order, nextStatus) {
+  if (nextStatus !== "COMPLETED") {
+    return true;
+  }
+
+  return order.orderType === "PICKUP";
+}
+
 router.get("/orders", async (req, res, next) => {
   try {
     const employee = await getEmployeeContext(req.auth.userId);
@@ -151,7 +88,7 @@ router.get("/orders", async (req, res, next) => {
     }
 
     const employeeRole = normalizeEmployeeRole(employee.employeeRole);
-    const statuses = ROLE_ORDER_STATUS_ACCESS[employeeRole] || [];
+    const statuses = getVisibleStatusesForRole(employeeRole);
 
     const orders = await prisma.order.findMany({
       where: {
@@ -176,10 +113,72 @@ router.get("/orders", async (req, res, next) => {
   }
 });
 
+router.get("/kitchen/orders", async (req, res, next) => {
+  try {
+    const employee = await getEmployeeContext(req.auth.userId);
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found." });
+    }
+    if (!employee.restaurantId) {
+      return res.status(400).json({ message: "Employee has no restaurant assigned." });
+    }
+
+    const orders = await prisma.order.findMany({
+      where: {
+        restaurantId: employee.restaurantId,
+        status: {
+          in: ACTIVE_ORDER_STATUSES
+        }
+      },
+      include: {
+        table: true,
+        items: true,
+        payment: true
+      },
+      orderBy: [{ createdAt: "asc" }]
+    });
+
+    return res.json({
+      orders: orders.map(mapOrder)
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/inventory/dashboard", async (req, res, next) => {
+  try {
+    const employee = await getEmployeeContext(req.auth.userId);
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found." });
+    }
+    if (!employee.restaurantId) {
+      return res.status(400).json({ message: "Employee has no restaurant assigned." });
+    }
+
+    const employeeRole = normalizeEmployeeRole(employee.employeeRole);
+    if (employeeRole !== "chef") {
+      return res.status(403).json({ message: "Only chef can access kitchen inventory." });
+    }
+
+    const dashboard = await getInventoryDashboard(prisma, employee.restaurantId);
+    return res.json(dashboard);
+  } catch (error) {
+    if (error instanceof InventoryError) {
+      return res.status(error.status).json({
+        message: error.message,
+        details: error.details || undefined
+      });
+    }
+
+    return next(error);
+  }
+});
+
 router.patch("/orders/:orderId/status", async (req, res, next) => {
   try {
     const { orderId } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
 
     const employee = await getEmployeeContext(req.auth.userId);
     if (!employee) {
@@ -192,33 +191,47 @@ router.patch("/orders/:orderId/status", async (req, res, next) => {
     const employeeRole = normalizeEmployeeRole(employee.employeeRole);
     const normalizedStatus = String(status || "").trim().toUpperCase();
 
-    const order = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-        restaurantId: employee.restaurantId
-      },
-      include: {
-        table: true,
-        items: true,
-        payment: true
+    const updatedOrder = await runSerializableTransaction(prisma, async (tx) => {
+      const order = await tx.order.findFirst({
+        where: {
+          id: orderId,
+          restaurantId: employee.restaurantId
+        },
+        include: {
+          table: true,
+          items: true,
+          payment: true
+        }
+      });
+
+      if (!order) {
+        throw new InventoryError("Order not found.", 404);
       }
-    });
 
-    if (!order) {
-      return res.status(404).json({ message: "Order not found." });
-    }
+      const allowedStatuses = getAllowedNextStatuses(employeeRole, order.status);
+      if (!allowedStatuses.includes(normalizedStatus)) {
+        throw new InventoryError("You are not allowed to set this order status.", 403);
+      }
 
-    const allowedStatuses = getAllowedNextStatuses(employeeRole, order.status);
-    if (!allowedStatuses.includes(normalizedStatus)) {
-      return res.status(403).json({ message: "You are not allowed to set this order status." });
-    }
+      if (employeeRole === "cashier" && !canCashierCompleteOrder(order, normalizedStatus)) {
+        throw new InventoryError(
+          "Use checkout for dine-in orders. Cashier can only complete pickup orders directly.",
+          403
+        );
+      }
 
-    const updatedOrder = await prisma.$transaction(async (tx) => {
+      const updateData = buildOrderStatusUpdateData(normalizedStatus, order);
+
+      if (normalizedStatus === "PREPARING") {
+        const consumptionResult = await consumeInventoryForOrder(tx, order);
+        if (consumptionResult.inventoryConsumedAt) {
+          updateData.inventoryConsumedAt = consumptionResult.inventoryConsumedAt;
+        }
+      }
+
       const nextOrder = await tx.order.update({
         where: { id: order.id },
-        data: {
-          status: normalizedStatus
-        },
+        data: updateData,
         include: {
           table: true,
           items: true,
@@ -234,6 +247,13 @@ router.patch("/orders/:orderId/status", async (req, res, next) => {
       order: mapOrder(updatedOrder)
     });
   } catch (error) {
+    if (error instanceof InventoryError) {
+      return res.status(error.status).json({
+        message: error.message,
+        details: error.details || undefined
+      });
+    }
+
     return next(error);
   }
 });
@@ -304,7 +324,7 @@ router.get("/payments", async (req, res, next) => {
 router.post("/tables/:tableId/checkout", async (req, res, next) => {
   try {
     const { tableId } = req.params;
-    const { paymentMethod } = req.body;
+    const { paymentMethod } = req.body || {};
 
     const employee = await getEmployeeContext(req.auth.userId);
     if (!employee) {
@@ -339,6 +359,7 @@ router.post("/tables/:tableId/checkout", async (req, res, next) => {
       where: {
         restaurantId: employee.restaurantId,
         tableId,
+        orderType: "DINE_IN",
         status: "READY"
       },
       include: {
@@ -349,11 +370,12 @@ router.post("/tables/:tableId/checkout", async (req, res, next) => {
     });
 
     if (readyOrders.length === 0) {
-      return res.status(400).json({ message: "There is no ready order waiting for payment on this table." });
+      return res.status(400).json({ message: "There is no ready dine-in order waiting for payment on this table." });
     }
 
     const orderIds = readyOrders.map((order) => order.id);
     const totalCents = readyOrders.reduce((sum, order) => sum + order.totalCents, 0);
+    const completedAt = new Date();
 
     const checkoutResult = await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({
@@ -372,8 +394,10 @@ router.post("/tables/:tableId/checkout", async (req, res, next) => {
           }
         },
         data: {
-          status: "PAID",
-          paymentId: payment.id
+          status: "COMPLETED",
+          paymentStatus: "PAID",
+          paymentId: payment.id,
+          completedAt
         }
       });
 
@@ -422,7 +446,7 @@ router.post("/tables/:tableId/checkout", async (req, res, next) => {
 router.patch("/tables/:tableId/status", async (req, res, next) => {
   try {
     const { tableId } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
 
     const employee = await getEmployeeContext(req.auth.userId);
     if (!employee) {

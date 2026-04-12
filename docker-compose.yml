@@ -31,7 +31,7 @@ services:
     volumes:
       - ./api:/app
       - api_node_modules:/app/node_modules
-    command: sh -c "npx prisma db push && node prisma/seed.js && npm run dev"
+    command: sh -c "npx prisma db push && npx prisma generate && node prisma/seed.js && npm run dev"
 
   web:
     build: ./web
