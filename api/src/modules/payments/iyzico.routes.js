@@ -1,7 +1,13 @@
 const express = require("express");
 const prisma = require("../../db");
-const { authenticate } = require("../../middleware/auth");
+const { authenticate, requireRoles } = require("../../middleware/auth");
 const { PaymentError, startIyzicoCheckout, handleIyzicoCallback } = require("./payment.service");
+const {
+  SubscriptionPaymentError,
+  startSubscriptionCheckout,
+  handleSubscriptionCallback,
+  getSubscriptionPaymentStatus
+} = require("./subscription.service");
 
 const router = express.Router();
 
@@ -129,5 +135,76 @@ router.get("/iyzico/orders/:orderId", authenticate, async (req, res) => {
     return sendError(res, 500, "Odeme durumu alinamadi.", "INTERNAL_ERROR");
   }
 });
+
+router.post(
+  "/iyzico/subscription/checkout",
+  authenticate,
+  requireRoles("OWNER"),
+  async (req, res) => {
+    try {
+      const planId = String(req.body?.planId || "").trim();
+      const restaurantId = req.auth?.restaurantId;
+      const ownerUserId = req.auth?.userId;
+
+      const result = await startSubscriptionCheckout({
+        ownerUserId,
+        restaurantId,
+        planId
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          conversationId: result.conversationId,
+          token: result.token,
+          paymentPageUrl: result.paymentPageUrl,
+          checkoutFormContent: result.checkoutFormContent,
+          plan: result.plan
+        }
+      });
+    } catch (error) {
+      if (error instanceof SubscriptionPaymentError) {
+        return sendError(res, error.statusCode, error.message, error.code);
+      }
+      console.error("POST /api/payments/iyzico/subscription/checkout failed:", error);
+      return sendError(res, 500, "Abonelik odemesi baslatilamadi.", "INTERNAL_ERROR");
+    }
+  }
+);
+
+router.post(
+  "/iyzico/subscription/callback",
+  express.urlencoded({ extended: true }),
+  express.json(),
+  async (req, res) => {
+    try {
+      const token = String(req.body?.token || req.query?.token || "").trim();
+      const result = await handleSubscriptionCallback({ token });
+      return res.redirect(303, result.redirectUrl);
+    } catch (error) {
+      console.error("POST /api/payments/iyzico/subscription/callback failed:", error);
+      return res.redirect(303, "/payment/result?kind=subscription&status=failure&reason=server_error");
+    }
+  }
+);
+
+router.get(
+  "/iyzico/subscription/status",
+  authenticate,
+  requireRoles("OWNER"),
+  async (req, res) => {
+    try {
+      const restaurantId = req.auth?.restaurantId;
+      const data = await getSubscriptionPaymentStatus({ restaurantId });
+      return res.json({ success: true, data });
+    } catch (error) {
+      if (error instanceof SubscriptionPaymentError) {
+        return sendError(res, error.statusCode, error.message, error.code);
+      }
+      console.error("GET /api/payments/iyzico/subscription/status failed:", error);
+      return sendError(res, 500, "Abonelik durumu alinamadi.", "INTERNAL_ERROR");
+    }
+  }
+);
 
 module.exports = router;

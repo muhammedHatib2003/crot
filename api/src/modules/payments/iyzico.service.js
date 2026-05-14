@@ -167,7 +167,88 @@ async function retrieveCheckoutForm({ token, conversationId }) {
   return postJson(RETRIEVE_URI, body);
 }
 
+async function initializeSubscriptionCheckoutForm({
+  owner,
+  restaurant,
+  plan,
+  callbackUrl,
+  conversationId
+}) {
+  const price = Number(plan.monthlyPrice);
+  if (!Number.isFinite(price) || price <= 0) {
+    const error = new Error("Plan ucreti gecersiz.");
+    error.code = "PLAN_PRICE_INVALID";
+    throw error;
+  }
+
+  const priceString = price.toFixed(2);
+
+  const ownerName = String(owner.fullName || owner.email || "Restoran Sahibi").trim();
+  const [firstName, ...rest] = ownerName.split(/\s+/);
+  const lastName = rest.join(" ").trim() || firstName || "Soyad";
+
+  const body = {
+    locale: "tr",
+    conversationId,
+    price: priceString,
+    paidPrice: priceString,
+    currency: "TRY",
+    basketId: `sub-${restaurant.id}`,
+    paymentGroup: "SUBSCRIPTION",
+    callbackUrl,
+    enabledInstallments: [1, 2, 3],
+    buyer: {
+      id: `OWN-${owner.id}`,
+      name: firstName || "Ad",
+      surname: lastName,
+      gsmNumber: String(owner.phone || "+905555555555").trim(),
+      email: owner.email,
+      identityNumber: "11111111111",
+      registrationAddress: restaurant.name || "Adres",
+      ip: "85.34.78.112",
+      city: restaurant.city || "Istanbul",
+      country: "Turkey",
+      zipCode: "34000"
+    },
+    shippingAddress: {
+      contactName: ownerName,
+      city: restaurant.city || "Istanbul",
+      country: "Turkey",
+      address: restaurant.name || "Adres",
+      zipCode: "34000"
+    },
+    billingAddress: {
+      contactName: ownerName,
+      city: restaurant.city || "Istanbul",
+      country: "Turkey",
+      address: restaurant.name || "Adres",
+      zipCode: "34000"
+    },
+    basketItems: [
+      {
+        id: `PLAN-${plan.id}`,
+        name: `${plan.displayName} Plan`.slice(0, 60),
+        category1: "Subscription",
+        itemType: "VIRTUAL",
+        price: priceString
+      }
+    ]
+  };
+
+  const result = await postJson(INITIALIZE_URI, body);
+
+  if (result.status !== "success") {
+    const error = new Error(result.errorMessage || "iyzico abonelik formu baslatilamadi.");
+    error.code = result.errorCode || "IYZICO_INITIALIZE_FAILED";
+    error.iyzicoBody = result;
+    throw error;
+  }
+
+  return result;
+}
+
 module.exports = {
   initializeCheckoutForm,
+  initializeSubscriptionCheckoutForm,
   retrieveCheckoutForm
 };

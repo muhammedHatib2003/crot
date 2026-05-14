@@ -283,3 +283,19 @@ export async function getIyzicoPaymentStatus(orderId, token) {
   });
   return response.data || {};
 }
+
+export async function startSubscriptionCheckout(planId, token) {
+  const response = await apiRequest("/payments/iyzico/subscription/checkout", {
+    method: "POST",
+    token,
+    body: { planId }
+  });
+  return response.data || {};
+}
+
+export async function getSubscriptionPaymentStatus(token) {
+  const response = await apiRequest("/payments/iyzico/subscription/status", {
+    token
+  });
+  return response.data || {};
+}

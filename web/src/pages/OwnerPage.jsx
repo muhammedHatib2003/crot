@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiRequest } from "../api";
+import { apiRequest, startSubscriptionCheckout } from "../api";
 import RestaurantLogo from "../components/RestaurantLogo";
 import {
   AppShell,
@@ -424,25 +424,17 @@ export default function OwnerPage({ session, onLogout }) {
     setSavingPlan(true);
 
     try {
-      const result = await apiRequest("/owner/subscription/select", {
-        method: "POST",
-        token,
-        body: { planId: selectedPlanId }
-      });
+      const result = await startSubscriptionCheckout(selectedPlanId, token);
 
-      setDashboard((previous) =>
-        previous
-          ? {
-              ...previous,
-              requiresPlanSelection: false,
-              subscription: result.subscription
-            }
-          : previous
-      );
-      setMessage(`Plan switched to ${result.subscription.plan.displayName}.`);
-      await loadData();
+      if (result?.paymentPageUrl) {
+        setMessage("Redirecting to secure payment...");
+        window.location.assign(result.paymentPageUrl);
+        return;
+      }
+
+      setError("Iyzico payment page could not be opened. Please try again in a moment.");
     } catch (requestError) {
-      setError(requestError.message);
+      setError(requestError.message || "Payment could not be started.");
     } finally {
       setSavingPlan(false);
     }
@@ -1277,7 +1269,10 @@ export default function OwnerPage({ session, onLogout }) {
           </form>
         </SectionCard>
 
-        <SectionCard title="Plan" description="Choose the plan that unlocks restaurant tools.">
+        <SectionCard
+          title="Plan"
+          description="Choose a plan and complete payment with Iyzico to unlock restaurant tools."
+        >
           <form className="space-y-4" onSubmit={activatePlan}>
             <div className="space-y-3">
               {plans.map((plan) => {
@@ -1311,8 +1306,16 @@ export default function OwnerPage({ session, onLogout }) {
               })}
             </div>
             <button className={buttonStyles.primary} disabled={savingPlan || !selectedPlan} type="submit">
-              {savingPlan ? "Saving..." : selectedPlan ? `Use ${selectedPlan.displayName}` : "Select a plan"}
+              {savingPlan
+                ? "Opening payment..."
+                : selectedPlan
+                ? `Pay with Iyzico - ${selectedPlan.displayName} (${selectedPlan.monthlyPrice} TRY)`
+                : "Select a plan"}
             </button>
+            <p className="text-xs text-slate-500">
+              You will be redirected to Iyzico's secure checkout. Your plan activates automatically once the payment
+              succeeds.
+            </p>
           </form>
         </SectionCard>
       </div>
