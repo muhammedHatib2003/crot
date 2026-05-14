@@ -9,6 +9,7 @@ const NEW_ORDER_FLASH_MS = 7000;
 const MENU_CATEGORY_OPTIONS = ["General", "Starter", "Main", "Dessert", "Drink"];
 const LATE_MINUTES_BY_STATUS = {
   PENDING: 5,
+  ACCEPTED: 8,
   PREPARING: 12,
   READY: 3
 };
@@ -85,11 +86,15 @@ function getSourceLabel(order) {
     return "PICKUP";
   }
 
+  if (order.orderType === "DELIVERY") {
+    return "ONLINE";
+  }
+
   return String(order.table?.name || "TABLE").toUpperCase();
 }
 
 function getActionLabel(status) {
-  if (status === "PENDING") {
+  if (status === "PENDING" || status === "ACCEPTED") {
     return "Start";
   }
 
@@ -507,7 +512,7 @@ export default function KitchenPage({ session, onLogout }) {
           method: "PATCH",
           token: session.token,
           body: {
-            status: order.status === "PENDING" ? "PREPARING" : "READY"
+            status: order.status === "PENDING" || order.status === "ACCEPTED" ? "PREPARING" : "READY"
           }
         });
       }
@@ -544,7 +549,7 @@ export default function KitchenPage({ session, onLogout }) {
       .sort((leftOrder, rightOrder) => leftOrder.boardStartedAtMs - rightOrder.boardStartedAtMs);
 
     return {
-      PENDING: normalizedOrders.filter((order) => order.status === "PENDING"),
+      PENDING: normalizedOrders.filter((order) => order.status === "PENDING" || order.status === "ACCEPTED"),
       PREPARING: normalizedOrders.filter((order) => order.status === "PREPARING"),
       READY: normalizedOrders.filter((order) => order.status === "READY")
     };
@@ -564,12 +569,12 @@ export default function KitchenPage({ session, onLogout }) {
   ];
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-gradient-to-br from-emerald-50 via-teal-50/60 to-slate-100">
       {/* Sidebar */}
-      <aside className="w-72 bg-white border-r border-slate-200 flex flex-col">
-        <div className="p-6 border-b border-slate-200">
-          <h1 className="text-xl font-bold text-slate-900">👨‍🍳 Kitchen KDS</h1>
-          <p className="text-sm text-slate-500 mt-1">{restaurantName}</p>
+      <aside className="w-72 border-r border-slate-200/70 bg-white/85 backdrop-blur flex flex-col shadow-[0_14px_34px_rgba(2,8,23,0.08)]">
+        <div className="p-6 border-b border-slate-200/70">
+          <h1 className="text-xl font-bold text-slate-950 tracking-tight">Kitchen KDS</h1>
+          <p className="text-sm text-slate-600 mt-1">{restaurantName}</p>
         </div>
 
         <nav className="flex-1 p-4">
@@ -578,10 +583,10 @@ export default function KitchenPage({ session, onLogout }) {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
-                w-full flex items-center justify-between px-4 py-3 rounded-lg mb-1 transition-all duration-200
+                w-full flex items-center justify-between px-4 py-3 rounded-xl mb-1 transition-all duration-200
                 ${activeTab === tab.id 
-                  ? "bg-blue-50 text-blue-700" 
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "bg-emerald-50 text-brand-900 shadow-sm ring-1 ring-emerald-200/70" 
+                  : "text-slate-600 hover:bg-emerald-50/60 hover:text-slate-900"
                 }
               `}
             >
@@ -592,7 +597,7 @@ export default function KitchenPage({ session, onLogout }) {
               {tab.badge > 0 && (
                 <span className={`
                   px-2 py-0.5 rounded-full text-xs font-semibold
-                  ${activeTab === tab.id ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-600"}
+                  ${activeTab === tab.id ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}
                 `}>
                   {tab.badge}
                 </span>
@@ -602,13 +607,13 @@ export default function KitchenPage({ session, onLogout }) {
         </nav>
 
         <div className="p-4 border-t border-slate-200 space-y-2">
-          <div className="p-3 bg-slate-50 rounded-lg">
-            <p className="text-xs text-slate-500 mb-1">Current Time</p>
-            <p className="text-xl font-bold text-slate-900">{formatLiveClock(now)}</p>
+          <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">Current time</p>
+            <p className="text-2xl font-semibold text-slate-950 tracking-tight">{formatLiveClock(now)}</p>
           </div>
           <button
             onClick={onLogout}
-            className="w-full px-4 py-2 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+            className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition duration-200 hover:bg-rose-50 hover:text-rose-700"
           >
             Logout
           </button>
@@ -638,8 +643,8 @@ export default function KitchenPage({ session, onLogout }) {
                     onChange={(e) => setFilterType(e.target.value)}
                   >
                     <option value="ALL">All Orders</option>
-                    <option value="DINE_IN">Dine In</option>
-                    <option value="TAKEAWAY">Takeaway</option>
+                    <option value="TABLE">Dine In</option>
+                    <option value="DELIVERY">Delivery</option>
                     <option value="PICKUP">Pickup</option>
                   </select>
                   <button
@@ -709,13 +714,22 @@ export default function KitchenPage({ session, onLogout }) {
           {activeTab === "menu" && (
             <div className="space-y-6">
               {/* Create New Dish Section */}
-              <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">➕ Create New Dish</h3>
-                <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={createDish}>
+              <div className="ui-surface ui-enter rounded-2xl p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-950">Create new dish</h3>
+                    <p className="mt-1 text-sm text-slate-600">Add a menu item, then optionally define a recipe.</p>
+                  </div>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">
+                    Menu
+                  </span>
+                </div>
+
+                <form className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={createDish}>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Dish Name *</label>
                     <input
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       required
                       value={dishForm.name}
                       onChange={(e) => updateDishField("name", e.target.value)}
@@ -725,7 +739,7 @@ export default function KitchenPage({ session, onLogout }) {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
                     <select
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       value={dishForm.category}
                       onChange={(e) => updateDishField("category", e.target.value)}
                     >
@@ -737,7 +751,7 @@ export default function KitchenPage({ session, onLogout }) {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Price *</label>
                     <input
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       min="0.01"
                       required
                       step="0.01"
@@ -750,7 +764,7 @@ export default function KitchenPage({ session, onLogout }) {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Stock</label>
                     <input
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       min="0"
                       step="1"
                       type="number"
@@ -761,7 +775,7 @@ export default function KitchenPage({ session, onLogout }) {
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                     <textarea
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full min-h-[88px] resize-y rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       rows="3"
                       value={dishForm.description}
                       onChange={(e) => updateDishField("description", e.target.value)}
@@ -771,7 +785,7 @@ export default function KitchenPage({ session, onLogout }) {
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Photo URL</label>
                     <input
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       value={dishForm.photoUrl}
                       onChange={(e) => updateDishField("photoUrl", e.target.value)}
                       placeholder="https://..."
@@ -781,21 +795,21 @@ export default function KitchenPage({ session, onLogout }) {
                     <div className="md:col-span-2">
                       <RemoteImage
                         alt="Preview"
-                        className="h-32 w-32 rounded-lg object-cover"
+                        className="h-32 w-32 rounded-2xl object-cover shadow-[0_10px_22px_rgba(2,8,23,0.12)]"
                         fallbackClassName="flex h-32 w-32 items-center justify-center rounded-lg bg-slate-200 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500"
                         fallback="No photo"
                         src={dishForm.photoUrl}
                       />
                     </div>
                   )}
-                  <div className="md:col-span-2 border-t border-slate-200 pt-4">
+                  <div className="md:col-span-2 border-t border-slate-200/70 pt-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <label className="block text-sm font-medium text-slate-700">Ingredients</label>
                         <p className="mt-1 text-xs text-slate-500">Optional on create. Add recipe lines now or save the dish and edit later.</p>
                       </div>
                       <button
-                        className="px-3 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
+                        className="inline-flex items-center justify-center rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-emerald-50/60 hover:text-slate-900 hover:shadow-md"
                         onClick={addCreateRecipeRow}
                         type="button"
                       >
@@ -806,9 +820,9 @@ export default function KitchenPage({ session, onLogout }) {
                     <div className="mt-3 space-y-2">
                       {createRecipeRows.length > 0 ? (
                         createRecipeRows.map((row) => (
-                          <div key={row.id} className="flex gap-2">
+                          <div key={row.id} className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/70 bg-white/60 p-2">
                             <select
-                              className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                              className="min-w-[220px] flex-1 rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                               value={row.ingredientId}
                               onChange={(e) => updateCreateRecipeRow(row.id, "ingredientId", e.target.value)}
                             >
@@ -820,7 +834,7 @@ export default function KitchenPage({ session, onLogout }) {
                               ))}
                             </select>
                             <input
-                              className="w-28 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                              className="w-28 rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                               min="0.001"
                               step="0.001"
                               type="number"
@@ -829,7 +843,7 @@ export default function KitchenPage({ session, onLogout }) {
                               placeholder="Qty"
                             />
                             <button
-                              className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
                               onClick={() => removeCreateRecipeRow(row.id)}
                               type="button"
                             >
@@ -846,7 +860,7 @@ export default function KitchenPage({ session, onLogout }) {
                   </div>
                   <div className="md:col-span-2">
                     <button
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                      className="ui-action-sheen inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-brand-700 via-brand-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(5,150,105,0.3)] transition duration-200 hover:-translate-y-0.5 hover:from-brand-900 hover:to-brand-700 hover:shadow-[0_14px_28px_rgba(5,150,105,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={creatingDish}
                       type="submit"
                     >
@@ -859,9 +873,12 @@ export default function KitchenPage({ session, onLogout }) {
               {/* Menu Items Grid */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">📋 Menu Items</h3>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-950">Menu items</h3>
+                    <p className="mt-1 text-sm text-slate-600">Click a card to edit details and recipe.</p>
+                  </div>
                   <button
-                    className="px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-300/80 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-emerald-50/60 hover:text-slate-900 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={loadingMenu}
                     onClick={loadMenu}
                   >
@@ -870,24 +887,28 @@ export default function KitchenPage({ session, onLogout }) {
                 </div>
 
                 {loadingMenu && menuItems.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500">Loading menu items...</div>
+                  <div className="ui-enter rounded-2xl border border-slate-200/70 bg-white/70 p-10 text-center text-slate-600 shadow-sm">
+                    Loading menu items...
+                  </div>
                 ) : menuItems.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">
+                  <div className="ui-enter rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/80 px-4 py-10 text-center text-sm text-slate-600">
                     No dishes yet. Create your first dish above!
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {menuItems.map((item) => (
                       <div
                         key={item.id}
-                        className={`bg-white rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${
-                          selectedMenuItemId === item.id ? "border-blue-500 ring-2 ring-blue-200" : "border-slate-200"
+                        className={`ui-enter group cursor-pointer overflow-hidden rounded-2xl border bg-white/80 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(2,8,23,0.12)] ${
+                          selectedMenuItemId === item.id
+                            ? "border-brand-500/60 ring-4 ring-brand-100"
+                            : "border-slate-200/80 hover:border-emerald-200"
                         }`}
                         onClick={() => setSelectedMenuItemId(item.id)}
                       >
                         <RemoteImage
                           alt={item.name}
-                          className="h-40 w-full rounded-t-xl object-cover"
+                          className="h-40 w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                           fallbackClassName="flex h-40 items-center justify-center rounded-t-xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400"
                           fallback="No Image"
                           src={item.photoUrl}
@@ -895,19 +916,26 @@ export default function KitchenPage({ session, onLogout }) {
                         <div className="p-4">
                           <div className="flex items-start justify-between mb-2">
                             <div>
-                              <h4 className="font-semibold text-slate-900">{item.name}</h4>
-                              <p className="text-xs text-slate-500 mt-1">{item.category}</p>
+                              <h4 className="font-semibold text-slate-950">{item.name}</h4>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                                  {item.category}
+                                </span>
+                                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
+                                  Stock {item.stock || 0}
+                                </span>
+                              </div>
                             </div>
-                            <p className="font-bold text-blue-600">${Number(item.price || 0).toFixed(2)}</p>
+                            <p className="rounded-full bg-gradient-to-r from-brand-700 to-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(5,150,105,0.22)]">
+                              ${Number(item.price || 0).toFixed(2)}
+                            </p>
                           </div>
                           <p className="text-sm text-slate-600 line-clamp-2">{item.description || "No description"}</p>
                           <div className="mt-3 flex items-center justify-between">
-                            <span className="text-xs px-2 py-1 bg-slate-100 rounded text-slate-600">
-                              Stock: {item.stock || 0}
-                            </span>
                             <span className={`text-xs px-2 py-1 rounded ${item.hasRecipe ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
                               {item.hasRecipe ? `${item.recipeIngredientCount} ingredients` : "No recipe"}
                             </span>
+                            <span className="text-xs font-medium text-slate-500 transition group-hover:text-brand-900">Edit →</span>
                           </div>
                         </div>
                       </div>
@@ -918,16 +946,17 @@ export default function KitchenPage({ session, onLogout }) {
 
               {/* Edit Selected Dish */}
               {selectedMenuItem && (
-                <div className="bg-white rounded-xl border border-slate-200 p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">✏️ Edit: {selectedMenuItem.name}</h3>
+                <div className="ui-surface ui-enter rounded-2xl p-6">
+                  <h3 className="text-lg font-semibold text-slate-950 mb-1">Edit: {selectedMenuItem.name}</h3>
+                  <p className="text-sm text-slate-600">Update details and manage the recipe.</p>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Dish Details */}
                     <div className="space-y-4">
-                      <h4 className="font-medium text-slate-700">Dish Details</h4>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Dish details</h4>
                       <div>
                         <label className="block text-sm text-slate-600 mb-1">Name</label>
                         <input
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                          className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           value={editDishForm.name}
                           onChange={(e) => updateEditDishField("name", e.target.value)}
                         />
@@ -935,7 +964,7 @@ export default function KitchenPage({ session, onLogout }) {
                       <div>
                         <label className="block text-sm text-slate-600 mb-1">Category</label>
                         <select
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                          className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           value={editDishForm.category}
                           onChange={(e) => updateEditDishField("category", e.target.value)}
                         >
@@ -948,7 +977,7 @@ export default function KitchenPage({ session, onLogout }) {
                         <div>
                           <label className="block text-sm text-slate-600 mb-1">Price</label>
                           <input
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                            className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                             type="number"
                             step="0.01"
                             value={editDishForm.price}
@@ -958,7 +987,7 @@ export default function KitchenPage({ session, onLogout }) {
                         <div>
                           <label className="block text-sm text-slate-600 mb-1">Stock</label>
                           <input
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                            className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                             type="number"
                             step="1"
                             value={editDishForm.stock}
@@ -969,7 +998,7 @@ export default function KitchenPage({ session, onLogout }) {
                       <div>
                         <label className="block text-sm text-slate-600 mb-1">Description</label>
                         <textarea
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                          className="w-full min-h-[88px] resize-y rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           rows="3"
                           value={editDishForm.description}
                           onChange={(e) => updateEditDishField("description", e.target.value)}
@@ -978,7 +1007,7 @@ export default function KitchenPage({ session, onLogout }) {
                       <div>
                         <label className="block text-sm text-slate-600 mb-1">Photo URL</label>
                         <input
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                          className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           value={editDishForm.photoUrl}
                           onChange={(e) => updateEditDishField("photoUrl", e.target.value)}
                         />
@@ -986,13 +1015,13 @@ export default function KitchenPage({ session, onLogout }) {
                       {editDishForm.photoUrl ? (
                         <RemoteImage
                           alt={`${editDishForm.name || selectedMenuItem.name} preview`}
-                          className="h-40 w-full rounded-xl object-cover"
+                          className="h-40 w-full rounded-2xl object-cover shadow-[0_12px_26px_rgba(2,8,23,0.12)]"
                           fallbackClassName="flex h-40 w-full items-center justify-center rounded-xl bg-slate-200 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500"
                           fallback="No photo"
                           src={editDishForm.photoUrl}
                         />
                       ) : null}
-                      <label className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 rounded-xl border border-slate-200/70 bg-white/60 px-3 py-2">
                         <input
                           type="checkbox"
                           checked={editDishForm.isAvailable}
@@ -1001,7 +1030,7 @@ export default function KitchenPage({ session, onLogout }) {
                         <span className="text-sm text-slate-700">Available on menu</span>
                       </label>
                       <button
-                        className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition disabled:opacity-50"
+                        className="ui-action-sheen inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(2,8,23,0.22)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(2,8,23,0.25)] disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={savingDish}
                         onClick={saveDish}
                       >
@@ -1011,21 +1040,21 @@ export default function KitchenPage({ session, onLogout }) {
 
                     {/* Recipe Management */}
                     <div className="space-y-4">
-                      <h4 className="font-medium text-slate-700">Recipe</h4>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Recipe</h4>
                       {loadingRecipe ? (
                         <div className="text-center py-8 text-slate-500">Loading recipe...</div>
                       ) : (
                         <>
-                          <div className="space-y-2 max-h-96 overflow-y-auto">
+                          <div className="space-y-2 max-h-96 overflow-y-auto rounded-2xl border border-slate-200/70 bg-white/60 p-3">
                             {recipeRows.length === 0 ? (
-                              <div className="text-center py-8 text-slate-400 border-2 border-dashed rounded-lg">
+                              <div className="text-center py-8 text-slate-500 border border-dashed border-slate-300 rounded-2xl bg-white/70">
                                 No ingredients yet. Add some!
                               </div>
                             ) : (
                               recipeRows.map((row) => (
-                                <div key={row.id} className="flex gap-2">
+                                <div key={row.id} className="flex flex-wrap gap-2 rounded-2xl border border-slate-200/70 bg-white/70 p-2">
                                   <select
-                                    className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                    className="min-w-[220px] flex-1 rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                                     value={row.ingredientId}
                                     onChange={(e) => updateRecipeRow(row.id, "ingredientId", e.target.value)}
                                   >
@@ -1035,7 +1064,7 @@ export default function KitchenPage({ session, onLogout }) {
                                     ))}
                                   </select>
                                   <input
-                                    className="w-24 px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                                    className="w-24 rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                                     type="number"
                                     step="0.001"
                                     value={row.quantity}
@@ -1043,7 +1072,7 @@ export default function KitchenPage({ session, onLogout }) {
                                     placeholder="Qty"
                                   />
                                   <button
-                                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                    className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
                                     onClick={() => removeRecipeRow(row.id)}
                                   >
                                     ✕
@@ -1054,13 +1083,13 @@ export default function KitchenPage({ session, onLogout }) {
                           </div>
                           <div className="flex gap-2">
                             <button
-                              className="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
+                              className="inline-flex items-center justify-center rounded-xl border border-slate-300/80 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-emerald-50/60 hover:text-slate-900 hover:shadow-md"
                               onClick={addRecipeRow}
                             >
                               + Add Ingredient
                             </button>
                             <button
-                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                              className="ui-action-sheen inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-brand-700 via-brand-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(5,150,105,0.3)] transition duration-200 hover:-translate-y-0.5 hover:from-brand-900 hover:to-brand-700 hover:shadow-[0_14px_28px_rgba(5,150,105,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
                               disabled={savingRecipe}
                               onClick={saveRecipe}
                             >

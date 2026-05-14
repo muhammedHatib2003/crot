@@ -1,5 +1,5 @@
-const ACTIVE_ORDER_STATUSES = ["PENDING", "PREPARING", "READY"];
-const KITCHEN_ORDER_STATUSES = ["PENDING", "PREPARING", "READY"];
+const ACTIVE_ORDER_STATUSES = ["PENDING", "ACCEPTED", "PREPARING", "READY"];
+const KITCHEN_ORDER_STATUSES = ["PENDING", "ACCEPTED", "PREPARING", "READY"];
 const READY_ORDER_STATUSES = ["READY"];
 const TABLE_DB_ORDER_TYPES = ["DINE_IN"];
 
@@ -8,31 +8,40 @@ const ROLE_ALIASES = {
   kitchen: "kitchen",
   cashier: "cashier",
   waiter: "waiter",
-  owner: "owner"
+  owner: "owner",
+  courier: "courier"
 };
 
 const ROLE_ORDER_STATUS_ACCESS = {
   kitchen: KITCHEN_ORDER_STATUSES,
   cashier: READY_ORDER_STATUSES,
   waiter: ACTIVE_ORDER_STATUSES,
-  owner: ACTIVE_ORDER_STATUSES
+  owner: ACTIVE_ORDER_STATUSES,
+  courier: ["READY", "SERVED"]
 };
 
 const ROLE_ORDER_TRANSITIONS = {
   kitchen: {
-    PENDING: ["PREPARING"],
-    PREPARING: ["READY"]
+    PENDING: ["ACCEPTED", "PREPARING"],
+    ACCEPTED: ["PREPARING"],
+    PREPARING: ["READY"],
+    READY: ["COMPLETED"]
   },
   cashier: {
-    READY: ["PAID"]
+    READY: ["PAID", "COMPLETED"]
   },
   waiter: {
-    READY: ["PAID"]
+    READY: ["PAID", "COMPLETED"]
+  },
+  courier: {
+    READY: ["SERVED"],
+    SERVED: ["COMPLETED"]
   },
   owner: {
-    PENDING: ["PREPARING", "PAID"],
-    PREPARING: ["READY", "PAID"],
-    READY: ["PAID"]
+    PENDING: ["ACCEPTED", "PREPARING", "PAID", "COMPLETED", "CANCELLED"],
+    ACCEPTED: ["PREPARING", "PAID", "COMPLETED", "CANCELLED"],
+    PREPARING: ["READY", "PAID", "COMPLETED", "CANCELLED"],
+    READY: ["PAID", "COMPLETED", "CANCELLED"]
   }
 };
 
@@ -67,6 +76,10 @@ function normalizeOrderType(orderType) {
 
   if (normalized === "PICKUP") {
     return "PICKUP";
+  }
+
+  if (normalized === "DELIVERY") {
+    return "DELIVERY";
   }
 
   return null;
@@ -135,7 +148,19 @@ function mapOrder(order) {
     paymentStatus: order.paymentStatus,
     customerName: order.customerName || null,
     customerPhone: order.customerPhone || null,
+    customerUserId: order.customerUserId || null,
+    customerAddress: order.customerAddress || order.deliveryAddressText || null,
+    deliveryAddressText: order.deliveryAddressText || order.customerAddress || null,
+    deliveryLatitude: order.deliveryLatitude ?? null,
+    deliveryLongitude: order.deliveryLongitude ?? null,
+    distanceKm: order.distanceKm ?? null,
+    assignedCourierAccountId: order.assignedCourierAccountId || null,
+    courierAcceptedAt: order.courierAcceptedAt || null,
     notes: order.notes || null,
+    subtotalCents: Number(order.subtotalCents || order.totalCents || 0),
+    subtotal: Number(order.subtotalCents || order.totalCents || 0) / 100,
+    deliveryFeeCents: Number(order.deliveryFeeCents || 0),
+    deliveryFee: Number(order.deliveryFeeCents || 0) / 100,
     totalCents: order.totalCents,
     total: order.totalCents / 100,
     totalPrice: order.totalCents / 100,
@@ -147,6 +172,20 @@ function mapOrder(order) {
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     tableId: order.tableId || null,
+    restaurantId: order.restaurantId || null,
+    restaurant: order.restaurant
+      ? {
+          id: order.restaurant.id,
+          name: order.restaurant.name,
+          slug: order.restaurant.slug || null,
+          logoUrl: order.restaurant.logoUrl || null,
+          latitude: order.restaurant.latitude ?? null,
+          longitude: order.restaurant.longitude ?? null,
+          address: order.restaurant.address || order.restaurant.addressText || null,
+          city: order.restaurant.city || null,
+          district: order.restaurant.district || null
+        }
+      : null,
     table: order.table
       ? {
           id: order.table.id,
@@ -177,6 +216,10 @@ function buildOrderStatusUpdateData(nextStatus, currentOrder) {
     status: normalizedStatus
   };
 
+  if (normalizedStatus === "ACCEPTED" && !currentOrder.acceptedAt) {
+    data.acceptedAt = now;
+  }
+
   if (normalizedStatus === "PREPARING" && !currentOrder.preparingAt) {
     data.preparingAt = now;
   }
@@ -190,6 +233,10 @@ function buildOrderStatusUpdateData(nextStatus, currentOrder) {
     if (!currentOrder.completedAt) {
       data.completedAt = now;
     }
+  }
+
+  if (normalizedStatus === "COMPLETED" && !currentOrder.completedAt) {
+    data.completedAt = now;
   }
 
   return data;

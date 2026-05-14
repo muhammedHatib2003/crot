@@ -1,14 +1,37 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { apiRequest } from "../api";
 import { getDefaultRoute } from "../auth";
 
-export default function LoginPage({ onLogin }) {
+function resolveRedirectPath(rawRedirect) {
+  const redirect = String(rawRedirect || "").trim();
+  if (!redirect.startsWith("/") || redirect.startsWith("//")) {
+    return null;
+  }
+  return redirect;
+}
+
+export default function LoginPage({ onLogin, session }) {
+  const { t } = useTranslation();
+  const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const redirectPath = useMemo(() => {
+    const params = new URLSearchParams(location.search || "");
+    return resolveRedirectPath(params.get("redirect"));
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      return;
+    }
+
+    navigate(redirectPath || getDefaultRoute(session.user), { replace: true });
+  }, [navigate, redirectPath, session]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -21,7 +44,7 @@ export default function LoginPage({ onLogin }) {
         body: { email, password }
       });
       onLogin(result);
-      navigate(getDefaultRoute(result.user), { replace: true });
+      navigate(redirectPath || getDefaultRoute(result.user), { replace: true });
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -32,12 +55,12 @@ export default function LoginPage({ onLogin }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl shadow-brand-100/70">
-        <h1 className="text-2xl font-bold text-brand-900">Restaurant Service Login</h1>
-        <p className="mt-2 text-sm text-slate-600">Sign in as super admin, owner, or employee.</p>
+        <h1 className="text-2xl font-bold text-brand-900">{t("auth.login.title")}</h1>
+        <p className="mt-2 text-sm text-slate-600">{t("auth.login.description")}</p>
 
         <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("auth.login.email")}</label>
             <input
               required
               type="email"
@@ -47,7 +70,7 @@ export default function LoginPage({ onLogin }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("auth.login.password")}</label>
             <input
               required
               type="password"
@@ -62,14 +85,19 @@ export default function LoginPage({ onLogin }) {
             className="w-full rounded-lg bg-brand-700 px-4 py-2 font-semibold text-white transition hover:bg-brand-900 disabled:opacity-60"
             type="submit"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? t("auth.login.loading") : t("auth.login.submit")}
           </button>
         </form>
 
         <p className="mt-6 text-sm text-slate-600">
-          New restaurant owner?{" "}
+          {t("auth.login.signupPrompt")}{" "}
           <Link className="font-medium text-brand-700 hover:text-brand-900" to="/signup">
-            Create account
+            {t("auth.login.signupLink")}
+          </Link>
+        </p>
+        <p className="mt-4 text-sm text-slate-600">
+          <Link className="font-medium text-brand-700 hover:text-brand-900" to="/courier/login">
+            {t("auth.login.courierLink")}
           </Link>
         </p>
       </div>

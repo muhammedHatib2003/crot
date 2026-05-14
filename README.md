@@ -128,3 +128,66 @@ npm run dev
 - Menu items consume ingredients through recipes, not through direct menu-item stock counts.
 - Replace JWT secret and admin credentials before deployment.
 - Add HTTPS, refresh tokens, audit logging, and payment integration for production.
+
+## 8) Online Ordering (Location-Based)
+
+The project now includes a real online ordering flow under `/online-order`:
+
+1. Customer grants browser location or uses manual city/district filters.
+2. API lists nearby restaurants by Haversine distance and delivery radius.
+3. Customer opens restaurant menu (`Category` + `Product`) and adds items.
+4. Checkout supports `DELIVERY` or `PICKUP`, plus saved addresses.
+5. Backend recalculates prices from DB and validates:
+   - restaurant open status (manual + opening hours),
+   - minimum basket,
+   - delivery radius.
+6. Owner manages settings/menu/orders from `/owner/online-orders`.
+
+### New main endpoints
+
+- `GET /api/online/restaurants?lat=...&lng=...&city=...&district=...&search=...&onlyOpen=true&delivery=true&pickup=true`
+- `GET /api/online/restaurants/:slug`
+- `GET /api/online/restaurants/:slug/menu`
+- `POST /api/online/orders` (customer auth required)
+- `GET /api/me/addresses`
+- `POST /api/me/addresses`
+- `PUT /api/me/addresses/:id`
+- `DELETE /api/me/addresses/:id`
+- `GET /api/me/orders`
+- `GET /api/owner/restaurant/settings`
+- `PUT /api/owner/restaurant/settings`
+- `GET /api/owner/menu/categories`
+- `POST /api/owner/menu/categories`
+- `PUT /api/owner/menu/categories/:id`
+- `DELETE /api/owner/menu/categories/:id`
+- `GET /api/owner/menu/products`
+- `POST /api/owner/menu/products`
+- `PUT /api/owner/menu/products/:id`
+- `DELETE /api/owner/menu/products/:id`
+- `GET /api/owner/orders`
+- `GET /api/owner/orders/:id`
+- `PATCH /api/owner/orders/:id/status`
+
+All new APIs follow:
+
+- `{ success: true, data: ... }`
+- `{ success: false, message: ... }`
+
+## 9) Database Update Notes
+
+After pulling these changes:
+
+```bash
+cd api
+npx prisma generate
+npm run db:push
+npm run seed
+```
+
+Seed now creates 5 demo online-order restaurants with:
+
+- realistic Istanbul coordinates,
+- different `deliveryRadiusKm`,
+- dynamic delivery pricing fields (`baseDeliveryFee`, `feePerKm`),
+- opening hours,
+- categories and products for online menu.

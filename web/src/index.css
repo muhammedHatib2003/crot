@@ -5,13 +5,16 @@
 :root {
   font-family: "Aptos", "Trebuchet MS", "Segoe UI", sans-serif;
   color-scheme: light;
-  background: #f4f6f5;
+  background: #edf5f1;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f4f6f5;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(16, 185, 129, 0.2), transparent 42%),
+    radial-gradient(circle at 88% 20%, rgba(20, 184, 166, 0.18), transparent 40%),
+    linear-gradient(180deg, #f3faf7 0%, #edf4f1 58%, #e8f0ed 100%);
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -22,7 +25,7 @@ body {
 }
 
 ::selection {
-  background: rgba(75, 154, 117, 0.24);
+  background: rgba(16, 185, 129, 0.3);
 }
 
 @keyframes cashier-fade-in {
@@ -76,6 +79,28 @@ body {
 
   50% {
     transform: scale(1.03);
+  }
+}
+
+@keyframes ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ui-sheen {
+  from {
+    transform: translateX(-130%);
+  }
+
+  to {
+    transform: translateX(220%);
   }
 }
 
@@ -136,4 +161,85 @@ body {
 .cashier-total-pop {
   animation: cashier-total-pop 1.9s ease-in-out infinite;
   transform-origin: left center;
+}
+
+.ui-enter {
+  animation: ui-fade-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ui-surface {
+  position: relative;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.96), rgba(243, 252, 248, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow:
+    0 10px 30px rgba(2, 8, 23, 0.07),
+    0 2px 8px rgba(15, 23, 42, 0.05);
+  will-change: transform, box-shadow;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.ui-surface:hover {
+  transform: translateY(-2px);
+  border-color: rgba(16, 185, 129, 0.26);
+  box-shadow:
+    0 18px 38px rgba(2, 8, 23, 0.1),
+    0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.ui-surface:active {
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-enter,
+  .cashier-table-card,
+  .cashier-modal-backdrop,
+  .cashier-modal-panel,
+  .cashier-payment-button::after,
+  .cashier-table-card--ready,
+  .cashier-ready-dot,
+  .cashier-total-pop {
+    animation: none !important;
+  }
+
+  .ui-surface {
+    transition: none;
+  }
+
+  .ui-surface:hover,
+  .ui-surface:active {
+    transform: none;
+  }
+}
+
+.ui-action-sheen {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.ui-action-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent);
+  transform: translateX(-130%);
+  animation: ui-sheen 2.8s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-enter,
+  .cashier-table-card--ready,
+  .cashier-ready-dot,
+  .cashier-total-pop {
+    animation: none !important;
+  }
+
+  .ui-action-sheen::after,
+  .cashier-payment-button::after {
+    animation: none !important;
+  }
 }

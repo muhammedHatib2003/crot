@@ -250,7 +250,9 @@ async function createOrderRecord(client, payload) {
   const items = normalizeLineItems(payload.items);
   const productsById = await reserveStockForOrder(client, payload.restaurantId, [], items);
   const orderItemsData = buildOrderItemsData(items, productsById, payload.restaurantId);
-  const totalCents = calculateTotalCents(orderItemsData);
+  const subtotalCents = calculateTotalCents(orderItemsData);
+  const deliveryFeeCents = Math.max(0, Math.round(Number(payload.deliveryFeeCents || 0)));
+  const totalCents = subtotalCents + deliveryFeeCents;
 
   const createdOrder = await client.order.create({
     data: {
@@ -260,9 +262,13 @@ async function createOrderRecord(client, payload) {
       orderType: payload.orderType || "DINE_IN",
       source: String(payload.source || "WAITER").trim().toUpperCase(),
       status: "PENDING",
+      customerUserId: normalizeOptionalText(payload.customerUserId),
       customerName: normalizeOptionalText(payload.customerName),
       customerPhone: normalizeOptionalText(payload.customerPhone),
+      customerAddress: normalizeOptionalText(payload.customerAddress),
       notes: normalizeOptionalText(payload.notes),
+      subtotalCents,
+      deliveryFeeCents,
       totalCents,
       items: {
         create: orderItemsData
@@ -364,6 +370,23 @@ async function createPickupOrder(payload) {
   );
 }
 
+async function createOnlineCustomerOrder(payload) {
+  const normalizedOrderType = String(payload.orderType || "DELIVERY").trim().toUpperCase();
+  if (!["DELIVERY", "PICKUP"].includes(normalizedOrderType)) {
+    throw new PosServiceError("orderType must be DELIVERY or PICKUP.", 400);
+  }
+
+  return runSerializableTransaction(async (tx) =>
+    createOrderRecord(tx, {
+      ...payload,
+      orderType: normalizedOrderType,
+      tableId: null,
+      tableName: null,
+      source: String(payload.source || "ONLINE").trim().toUpperCase()
+    })
+  );
+}
+
 async function updateOrderStatus(payload) {
   return runSerializableTransaction(async (tx) => {
     const order = await getOrderOrThrow(tx, payload.restaurantId, payload.orderId);
@@ -372,6 +395,10 @@ async function updateOrderStatus(payload) {
 
     if (!allowedStatuses.includes(nextStatus)) {
       throw new PosServiceError("You are not allowed to set this order status.", 403);
+    }
+
+    if (nextStatus === "COMPLETED" && order.orderType === "DINE_IN" && order.paymentStatus !== "PAID") {
+      throw new PosServiceError("Dine-in orders must be paid before completion.", 403);
     }
 
     const updatedOrder = await tx.order.update({
@@ -510,6 +537,7 @@ async function setProductStock(restaurantId, productId, stock) {
 }
 
 module.exports = {
+  createOnlineCustomerOrder,
   PosServiceError,
   createOrAppendTableOrder,
   createPickupOrder,

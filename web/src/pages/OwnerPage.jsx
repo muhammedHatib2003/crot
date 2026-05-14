@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiRequest } from "../api";
 import RestaurantLogo from "../components/RestaurantLogo";
 import {
@@ -1327,6 +1328,9 @@ export default function OwnerPage({ session, onLogout }) {
               <button className={buttonStyles.secondary} onClick={() => loadData()} type="button">
                 Refresh
               </button>
+              <Link className={buttonStyles.secondary} to="/owner/online-orders">
+                Online Orders
+              </Link>
               <button className={buttonStyles.secondary} onClick={onLogout} type="button">
                 Logout
               </button>

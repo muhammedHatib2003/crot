@@ -100,4 +100,144 @@ router.patch("/plans/:planId", async (req, res, next) => {
   }
 });
 
+function mapCourierAccountRow(account) {
+  return {
+    id: account.id,
+    fullName: account.fullName,
+    email: account.email,
+    phone: account.phone,
+    status: account.status,
+    documentUrl: account.documentUrl,
+    documentOriginalName: account.documentOriginalName,
+    restaurantId: account.restaurantId,
+    restaurant: account.restaurant
+      ? {
+          id: account.restaurant.id,
+          name: account.restaurant.name
+        }
+      : null,
+    rejectionReason: account.rejectionReason,
+    reviewedAt: account.reviewedAt,
+    reviewedBy: account.reviewedBy
+      ? {
+          id: account.reviewedBy.id,
+          fullName: account.reviewedBy.fullName,
+          email: account.reviewedBy.email
+        }
+      : null,
+    createdAt: account.createdAt
+  };
+}
+
+router.get("/restaurants", async (req, res, next) => {
+  try {
+    const restaurants = await prisma.restaurant.findMany({
+      select: { id: true, name: true, city: true, slug: true },
+      orderBy: { name: "asc" }
+    });
+    return res.json({ restaurants });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get("/courier-accounts", async (req, res, next) => {
+  try {
+    const status = String(req.query.status || "").trim().toUpperCase();
+    const where =
+      status && ["PENDING", "APPROVED", "REJECTED"].includes(status) ? { status } : {};
+
+    const accounts = await prisma.courierAccount.findMany({
+      where,
+      include: {
+        restaurant: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, fullName: true, email: true } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return res.json({
+      accounts: accounts.map(mapCourierAccountRow)
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/courier-accounts/:courierId/approve", async (req, res, next) => {
+  try {
+    const courierId = String(req.params.courierId || "").trim();
+
+    const account = await prisma.courierAccount.findUnique({ where: { id: courierId } });
+
+    if (!account) {
+      return res.status(404).json({ message: "Courier application not found." });
+    }
+
+    if (account.status !== "PENDING") {
+      return res.status(409).json({ message: "Only pending applications can be approved." });
+    }
+
+    const updated = await prisma.courierAccount.update({
+      where: { id: courierId },
+      data: {
+        status: "APPROVED",
+        restaurantId: null,
+        reviewedByUserId: req.auth.userId,
+        reviewedAt: new Date(),
+        rejectionReason: null
+      },
+      include: {
+        restaurant: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, fullName: true, email: true } }
+      }
+    });
+
+    return res.json({
+      message: "Courier approved.",
+      account: mapCourierAccountRow(updated)
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch("/courier-accounts/:courierId/reject", async (req, res, next) => {
+  try {
+    const courierId = String(req.params.courierId || "").trim();
+    const rejectionReason = String(req.body?.rejectionReason || "").trim() || "Rejected by administrator.";
+
+    const account = await prisma.courierAccount.findUnique({ where: { id: courierId } });
+    if (!account) {
+      return res.status(404).json({ message: "Courier application not found." });
+    }
+
+    if (account.status !== "PENDING") {
+      return res.status(409).json({ message: "Only pending applications can be rejected." });
+    }
+
+    const updated = await prisma.courierAccount.update({
+      where: { id: courierId },
+      data: {
+        status: "REJECTED",
+        rejectionReason,
+        reviewedByUserId: req.auth.userId,
+        reviewedAt: new Date(),
+        restaurantId: null
+      },
+      include: {
+        restaurant: { select: { id: true, name: true } },
+        reviewedBy: { select: { id: true, fullName: true, email: true } }
+      }
+    });
+
+    return res.json({
+      message: "Courier application rejected.",
+      account: mapCourierAccountRow(updated)
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 module.exports = router;

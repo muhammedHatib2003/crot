@@ -1,9 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { apiRequest } from "../api";
 import { getDefaultRoute } from "../auth";
 
 export default function SignupPage({ onLogin }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: "",
@@ -42,12 +44,12 @@ export default function SignupPage({ onLogin }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl shadow-brand-100/70">
-        <h1 className="text-2xl font-bold text-brand-900">Owner Sign Up</h1>
-        <p className="mt-2 text-sm text-slate-600">Create your restaurant account first.</p>
+        <h1 className="text-2xl font-bold text-brand-900">{t("auth.signup.title")}</h1>
+        <p className="mt-2 text-sm text-slate-600">{t("auth.signup.description")}</p>
 
         <form className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Your Name</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("auth.signup.fullName")}</label>
             <input
               required
               className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
@@ -56,7 +58,7 @@ export default function SignupPage({ onLogin }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Restaurant Name</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("auth.signup.restaurantName")}</label>
             <input
               required
               className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
@@ -65,7 +67,7 @@ export default function SignupPage({ onLogin }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("auth.signup.phone")}</label>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
               value={form.phone}
@@ -73,7 +75,7 @@ export default function SignupPage({ onLogin }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Restaurant Phone</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("auth.signup.restaurantPhone")}</label>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
               value={form.restaurantPhone}
@@ -81,7 +83,7 @@ export default function SignupPage({ onLogin }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("auth.signup.email")}</label>
             <input
               required
               type="email"
@@ -91,7 +93,7 @@ export default function SignupPage({ onLogin }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Password</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("auth.signup.password")}</label>
             <input
               required
               type="password"
@@ -110,15 +112,15 @@ export default function SignupPage({ onLogin }) {
               className="w-full rounded-lg bg-brand-700 px-4 py-2 font-semibold text-white transition hover:bg-brand-900 disabled:opacity-60"
               type="submit"
             >
-              {loading ? "Creating..." : "Create owner account"}
+              {loading ? t("auth.signup.loading") : t("auth.signup.submit")}
             </button>
           </div>
         </form>
 
         <p className="mt-6 text-sm text-slate-600">
-          Already have an account?{" "}
+          {t("auth.signup.loginPrompt")}{" "}
           <Link className="font-medium text-brand-700 hover:text-brand-900" to="/login">
-            Sign in
+            {t("auth.signup.loginLink")}
           </Link>
         </p>
       </div>

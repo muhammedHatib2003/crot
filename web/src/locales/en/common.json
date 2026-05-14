@@ -1,0 +1,321 @@
+{
+  "app": {
+    "title": "CROT Restaurant Service"
+  },
+  "common": {
+    "restaurantFallback": "Restaurant",
+    "notAvailable": "-",
+    "empty": "Empty",
+    "closeDrawer": "Close panel",
+    "closePopup": "Close popup",
+    "languageSwitcher": {
+      "label": "Select language",
+      "shortLabel": "Lang",
+      "languages": {
+        "en": "English",
+        "tr": "Turkish",
+        "ar": "Arabic"
+      }
+    },
+    "actions": {
+      "refresh": "Refresh",
+      "refreshing": "Refreshing...",
+      "logout": "Logout",
+      "close": "Close",
+      "save": "Save",
+      "saving": "Saving...",
+      "create": "Create",
+      "creating": "Creating...",
+      "update": "Update",
+      "updating": "Updating...",
+      "add": "Add",
+      "adding": "Adding...",
+      "remove": "Remove",
+      "review": "Review",
+      "approve": "Approve",
+      "reject": "Reject",
+      "signIn": "Sign in",
+      "signingIn": "Signing in...",
+      "createAccount": "Create account",
+      "processing": "Processing..."
+    },
+    "labels": {
+      "status": "Status",
+      "customer": "Customer",
+      "phone": "Phone",
+      "total": "Total",
+      "table": "Table",
+      "pickup": "Pickup",
+      "selected": "Selected",
+      "currentTime": "Current time",
+      "preview": "Preview",
+      "name": "Name",
+      "email": "Email",
+      "description": "Description",
+      "category": "Category",
+      "price": "Price",
+      "stock": "Stock",
+      "unit": "Unit",
+      "minimumStock": "Minimum stock",
+      "currentStock": "Current stock",
+      "ingredients": "Ingredients",
+      "orders": "Orders"
+    },
+    "errors": {
+      "requestFailed": "Request failed.",
+      "addOneItem": "Add at least one item.",
+      "nameAndPhoneRequired": "Name and phone are required for pickup orders.",
+      "planPriceWholeNumber": "Plan price must be a whole number greater than 0."
+    },
+    "loading": {
+      "plans": "Loading plans...",
+      "users": "Loading users...",
+      "couriers": "Loading courier applications..."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Restaurant Service Login",
+      "description": "Sign in as super admin, owner, or employee.",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "loading": "Signing in...",
+      "signupPrompt": "New restaurant owner?",
+      "signupLink": "Create account",
+      "courierLink": "Courier login (separate account)"
+    },
+    "signup": {
+      "title": "Owner Sign Up",
+      "description": "Create your restaurant account first.",
+      "fullName": "Your Name",
+      "restaurantName": "Restaurant Name",
+      "phone": "Phone",
+      "restaurantPhone": "Restaurant Phone",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Create owner account",
+      "loading": "Creating...",
+      "loginPrompt": "Already have an account?",
+      "loginLink": "Sign in"
+    }
+  },
+  "admin": {
+    "eyebrow": "Super admin",
+    "title": "Platform controls",
+    "loggedInAs": "Logged in as {{name}} ({{email}})",
+    "planPricing": {
+      "title": "Plan pricing",
+      "description": "Update the monthly price for each subscription plan.",
+      "code": "Code",
+      "name": "Name",
+      "descriptionHeader": "Description",
+      "monthlyPrice": "Monthly price ($)",
+      "action": "Action",
+      "save": "Save",
+      "saving": "Saving...",
+      "empty": "No plans found.",
+      "updated": "{{planName}} plan price updated."
+    },
+    "users": {
+      "title": "Users and restaurants",
+      "description": "A single searchable list for platform oversight.",
+      "name": "Name",
+      "email": "Email",
+      "systemRole": "System role",
+      "employeeRole": "Employee role",
+      "restaurant": "Restaurant",
+      "empty": "No users found."
+    },
+    "courierApplications": {
+      "title": "Courier applications",
+      "description": "Review courier certificates. Approve to activate the account; couriers see nearby online delivery offers by location.",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "status": "Status",
+      "submitted": "Submitted",
+      "document": "Document",
+      "viewDoc": "Open file",
+      "approve": "Approve",
+      "reject": "Reject",
+      "rejectReasonPlaceholder": "Reason (optional, shown to applicant)",
+      "processing": "Saving...",
+      "empty": "No applications.",
+      "filterPending": "Pending",
+      "filterAll": "All",
+      "statusPending": "Pending",
+      "statusApproved": "Approved",
+      "statusRejected": "Rejected",
+      "approvedOk": "Courier approved.",
+      "rejectedOk": "Application rejected."
+    }
+  },
+  "courierPortal": {
+    "login": {
+      "title": "Courier sign in",
+      "description": "Use your courier account. Sign-in is enabled after a super admin approves your certificate.",
+      "submit": "Sign in",
+      "loading": "Signing in...",
+      "signupPrompt": "New courier?",
+      "signupLink": "Register and upload certificate",
+      "staffLink": "Restaurant staff login"
+    },
+    "signup": {
+      "title": "Courier registration",
+      "description": "Upload your courier certificate (kurye belgesi). A super admin will review it. You cannot sign in until approved.",
+      "fullName": "Full name",
+      "phone": "Phone (optional)",
+      "document": "Courier certificate file",
+      "documentHint": "PDF, JPG, PNG or WEBP — max 8 MB.",
+      "documentRequired": "Please attach your certificate file.",
+      "submit": "Submit application",
+      "submitting": "Submitting...",
+      "success": "Application received. You will be redirected to sign in.",
+      "loginPrompt": "Already registered?",
+      "loginLink": "Courier sign in"
+    }
+  },
+  "ownerOnline": {
+    "panel": "Owner Panel",
+    "title": "Online Order Management",
+    "mainPanel": "Main Owner Panel",
+    "tabs": {
+      "general": "General",
+      "location": "Location & Delivery",
+      "hours": "Working Hours",
+      "menu": "Menu Management",
+      "orders": "Orders",
+      "photos": "Photos"
+    }
+  },
+  "onlineAuth": {
+    "login": {
+      "title": "Online Order Login",
+      "description": "Sign in to place online orders.",
+      "signupPrompt": "Don't have an account?",
+      "signupLink": "Sign up"
+    },
+    "signup": {
+      "title": "Online Order Signup",
+      "description": "Create a new customer account.",
+      "fullName": "Full name",
+      "loading": "Creating account...",
+      "submit": "Create account",
+      "loginPrompt": "Already have an account?",
+      "loginLink": "Sign in"
+    }
+  },
+  "onlineOrder": {
+    "title": "Online Order",
+    "description": "Find restaurants by your location or saved address.",
+    "nav": {
+      "signIn": "Sign in",
+      "myOrders": "My orders"
+    },
+    "useMyLocation": "Use my location",
+    "status": {
+      "granted": "Live location active.",
+      "mapPicked": "Map-picked location active.",
+      "savedAddress": "Saved address selection active.",
+      "denied": "Location permission denied, choose address or city/district.",
+      "unsupported": "Browser does not support location.",
+      "requesting": "Getting location..."
+    },
+    "fallback": {
+      "title": "Use address instead of location",
+      "selectSavedAddress": "Select saved address",
+      "loginForSavedAddress": "Sign in to select a saved address.",
+      "mapHint": "If GPS is unavailable, pick a point from map."
+    },
+    "map": {
+      "picked": "Location selected from map.",
+      "reverseGeocodeFailed": "Location selected. City/district could not be auto-filled."
+    },
+    "filters": {
+      "search": "Search",
+      "searchPlaceholder": "Restaurant or cuisine",
+      "city": "City",
+      "cityPlaceholder": "City",
+      "district": "District",
+      "districtPlaceholder": "District",
+      "sort": "Sort",
+      "onlyOpen": "Only open",
+      "delivery": "Delivery",
+      "pickup": "Pickup"
+    },
+    "sort": {
+      "nearest": "Nearest",
+      "fastest": "Fastest delivery",
+      "minimumOrder": "Minimum basket",
+      "deliveryFee": "Delivery fee",
+      "rating": "Rating"
+    },
+    "loading": "Loading restaurants...",
+    "empty": "No restaurants match your filters."
+  },
+  "onlineCart": {
+    "mapPinAddress": "Map pin (delivery location)",
+    "backToRestaurants": "All restaurants",
+    "backToMenu": "Back to menu",
+    "saveAddressIncomplete": "Pick a point on the map or enter address details before saving.",
+    "checkoutAddressIncomplete": "For delivery, select a saved address with a map location, or pick a point on the map (street address or area is filled automatically when possible)."
+  },
+  "courier": {
+    "title": "Courier",
+    "eyebrow": "Role",
+    "platformLabel": "Location-based platform",
+    "description": "See nearby ready deliveries, accept first, then complete pickup and drop-off. Live map shows restaurant, customer, and your position.",
+    "loading": "Loading courier data...",
+    "locationHint": "Share your live location so we can show deliveries near you. Allow browser location or wait for GPS updates.",
+    "tabs": {
+      "offers": "Nearby offers",
+      "queue": "My deliveries"
+    },
+    "map": {
+      "title": "Live map",
+      "description": "Pickup (blue), drop-off (red), you (green). Line is straight-line distance only.",
+      "pickup": "Restaurant",
+      "dropoff": "Customer",
+      "you": "You"
+    },
+    "offers": {
+      "title": "Open offers",
+      "description": "Kitchen marked these orders ready. First courier to accept gets the job.",
+      "distance": "About {{km}} km from you to the restaurant",
+      "empty": "No nearby open deliveries. Stay online and keep location on."
+    },
+    "queue": {
+      "title": "Assigned to you",
+      "stats": "Ready: {{ready}} • On the way: {{served}}",
+      "empty": "No active deliveries. Accept an offer from the other tab."
+    },
+    "status": {
+      "ready": "Ready for pickup",
+      "assigned": "Assigned — pick up at restaurant",
+      "onTheWay": "On the way"
+    },
+    "fields": {
+      "customer": "Customer:",
+      "phone": "Phone:",
+      "address": "Address:",
+      "note": "Note:"
+    },
+    "actions": {
+      "accept": "Accept delivery",
+      "accepting": "Accepting...",
+      "pickup": "Picked up — start delivery",
+      "delivered": "Delivered",
+      "updating": "Updating...",
+      "enableNotify": "Browser alerts"
+    },
+    "messages": {
+      "accepted": "Delivery assigned to you.",
+      "updated": "{{code}} updated."
+    },
+    "notify": {
+      "newTitle": "New delivery nearby",
+      "newBody": "A ready order appeared in your zone. Open the courier tab."
+    }
+  }
+}

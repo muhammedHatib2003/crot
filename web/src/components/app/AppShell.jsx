@@ -4,21 +4,21 @@ function joinClasses(...values) {
 
 export const buttonStyles = {
   primary:
-    "inline-flex items-center justify-center rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-900 disabled:cursor-not-allowed disabled:opacity-60",
+    "ui-action-sheen inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-brand-700 via-brand-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(5,150,105,0.3)] transition duration-200 hover:-translate-y-0.5 hover:from-brand-900 hover:to-brand-700 hover:shadow-[0_14px_28px_rgba(5,150,105,0.35)] disabled:cursor-not-allowed disabled:opacity-60",
   secondary:
-    "inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60",
+    "inline-flex items-center justify-center rounded-xl border border-slate-300/80 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-emerald-50/60 hover:text-slate-900 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60",
   subtle:
-    "inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+    "inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-sm font-medium text-slate-600 transition duration-200 hover:bg-emerald-100/80 hover:text-brand-900 disabled:cursor-not-allowed disabled:opacity-60"
 };
 
 export const fieldStyles =
-  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
+  "w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100";
 
 export const textareaStyles = `${fieldStyles} min-h-[88px] resize-y`;
 
 export function AppShell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f4f6f5]">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50/70 to-slate-100">
       <div className="mx-auto max-w-[1440px] px-4 py-6 md:px-6 md:py-8">{children}</div>
     </div>
   );
@@ -26,7 +26,7 @@ export function AppShell({ children }) {
 
 export function PageHeader({ title, description, meta = [], actions, eyebrow }) {
   return (
-    <header className="rounded-2xl bg-white px-5 py-5 shadow-sm ring-1 ring-slate-200/70 md:px-6">
+    <header className="ui-surface ui-enter rounded-2xl px-5 py-5 md:px-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-3xl">
           {eyebrow ? (
@@ -39,7 +39,7 @@ export function PageHeader({ title, description, meta = [], actions, eyebrow }) 
               {meta.map((item) => (
                 <span
                   key={item}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600"
+                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800"
                 >
                   {item}
                 </span>
@@ -55,11 +55,11 @@ export function PageHeader({ title, description, meta = [], actions, eyebrow }) 
 
 export function StatusPill({ children, tone = "neutral" }) {
   const tones = {
-    neutral: "border-slate-200 bg-slate-100 text-slate-700",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    warning: "border-amber-200 bg-amber-50 text-amber-700",
-    info: "border-sky-200 bg-sky-50 text-sky-700",
-    danger: "border-rose-200 bg-rose-50 text-rose-700"
+    neutral: "border-slate-300 bg-slate-100 text-slate-700",
+    success: "border-emerald-300 bg-emerald-100 text-emerald-800",
+    warning: "border-amber-300 bg-amber-100 text-amber-800",
+    info: "border-cyan-300 bg-cyan-100 text-cyan-800",
+    danger: "border-rose-300 bg-rose-100 text-rose-800"
   };
 
   return (
@@ -87,7 +87,7 @@ export function MetricGrid({ items, variant = "default", className = "" }) {
         <div
           key={item.label}
           className={joinClasses(
-            "rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-slate-200/70",
+            "ui-surface ui-enter rounded-2xl px-4 py-4",
             isCompact ? "min-h-[112px]" : ""
           )}
         >
@@ -130,7 +130,7 @@ export function MetricGrid({ items, variant = "default", className = "" }) {
 
 export function Tabs({ items, activeKey, onChange }) {
   return (
-    <nav className="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+    <nav className="ui-surface ui-enter overflow-x-auto rounded-2xl p-1.5">
       <div className="flex min-w-max gap-1">
         {items.map((item) => {
           const isActive = item.id === activeKey;
@@ -138,8 +138,10 @@ export function Tabs({ items, activeKey, onChange }) {
             <button
               key={item.id}
               className={joinClasses(
-                "rounded-xl px-4 py-2.5 text-sm font-medium transition",
-                isActive ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                "rounded-xl px-4 py-2.5 text-sm font-medium transition duration-200",
+                isActive
+                  ? "bg-gradient-to-r from-brand-700 to-brand-500 text-white shadow-[0_10px_20px_rgba(5,150,105,0.28)]"
+                  : "text-slate-600 hover:bg-emerald-100/70 hover:text-brand-900"
               )}
               onClick={() => onChange(item.id)}
               type="button"
@@ -155,7 +157,7 @@ export function Tabs({ items, activeKey, onChange }) {
 
 export function SectionCard({ title, description, actions, children, className = "" }) {
   return (
-    <section className={joinClasses("rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70", className)}>
+    <section className={joinClasses("ui-surface ui-enter rounded-2xl p-5", className)}>
       {(title || description || actions) && (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="max-w-2xl">
@@ -172,14 +174,14 @@ export function SectionCard({ title, description, actions, children, className =
 
 export function MessageBanner({ tone = "info", children }) {
   const tones = {
-    info: "border-slate-200 bg-white text-slate-700",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    error: "border-rose-200 bg-rose-50 text-rose-800",
-    warning: "border-amber-200 bg-amber-50 text-amber-800"
+    info: "border-cyan-300 bg-cyan-100/80 text-cyan-900",
+    success: "border-emerald-300 bg-emerald-100/80 text-emerald-900",
+    error: "border-rose-300 bg-rose-100/80 text-rose-900",
+    warning: "border-amber-300 bg-amber-100/80 text-amber-900"
   };
 
   return (
-    <div className={joinClasses("rounded-2xl border px-4 py-3 text-sm shadow-sm", tones[tone] || tones.info)}>
+    <div className={joinClasses("ui-enter rounded-2xl border px-4 py-3 text-sm shadow-[0_10px_20px_rgba(15,23,42,0.08)]", tones[tone] || tones.info)}>
       {children}
     </div>
   );
@@ -187,7 +189,7 @@ export function MessageBanner({ tone = "info", children }) {
 
 export function EmptyState({ title, description, action }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+    <div className="ui-enter rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/80 px-4 py-6 text-sm text-slate-600">
       <p className="font-medium text-slate-700">{title}</p>
       {description ? <p className="mt-1 leading-6">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
@@ -206,7 +208,7 @@ export function Field({ label, hint, children }) {
 }
 
 export function TableWrap({ children }) {
-  return <div className="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">{children}</div>;
+  return <div className="ui-surface ui-enter overflow-x-auto rounded-2xl">{children}</div>;
 }
 
 export function SimpleTable({ headers, children }) {
@@ -233,7 +235,7 @@ export function SimpleTable({ headers, children }) {
 
 export function ListRow({ title, subtitle, meta, actions, children }) {
   return (
-    <article className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-slate-200/70">
+    <article className="ui-surface ui-enter rounded-2xl px-4 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -260,7 +262,7 @@ export function SplitLayout({ sidebar, children }) {
 
 export function SidebarCard({ title, children }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/70">
+    <div className="ui-surface ui-enter rounded-2xl p-4">
       {title ? <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</h2> : null}
       <div className={title ? "mt-4" : ""}>{children}</div>
     </div>
@@ -276,12 +278,12 @@ export function Drawer({ open, onClose, title, description, actions, children, w
     <div className="fixed inset-0 z-50">
       <button
         aria-label="Close drawer"
-        className="absolute inset-0 bg-slate-950/30 backdrop-blur-[1px]"
+        className="cashier-modal-backdrop absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]"
         onClick={onClose}
         type="button"
       />
       <div className="absolute inset-y-0 right-0 flex w-full justify-end">
-        <aside className={joinClasses("h-full w-full border-l border-slate-200 bg-white shadow-2xl", widthClass)}>
+        <aside className={joinClasses("cashier-modal-panel h-full w-full border-l border-emerald-200/70 bg-white/95 shadow-[0_24px_60px_rgba(2,8,23,0.28)]", widthClass)}>
           <div className="flex h-full flex-col px-4 py-4 sm:px-6">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
               <div className="min-w-0">

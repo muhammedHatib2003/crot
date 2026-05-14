@@ -30,6 +30,7 @@ export default function CashierPage({ session, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [checkingOutTableId, setCheckingOutTableId] = useState("");
+  const [updatingOrderId, setUpdatingOrderId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -50,6 +51,10 @@ export default function CashierPage({ session, onLogout }) {
   const openTableTotal = useMemo(
     () => openTableOrders.reduce((sum, order) => sum + Number(order.totalPrice || 0), 0),
     [openTableOrders]
+  );
+  const onlineOrders = useMemo(
+    () => orders.filter((order) => order.orderType !== "TABLE"),
+    [orders]
   );
 
   async function loadQueue(showRefresh = false) {
@@ -140,6 +145,29 @@ export default function CashierPage({ session, onLogout }) {
     }
   }
 
+  async function updateOrderStatus(orderId, status) {
+    setUpdatingOrderId(orderId);
+    setError("");
+    setMessage("");
+
+    try {
+      await apiRequest(`/cashier/orders/${orderId}/status`, {
+        method: "PATCH",
+        token: session.token,
+        body: {
+          status
+        }
+      });
+
+      setMessage("Online order updated.");
+      await loadQueue();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setUpdatingOrderId("");
+    }
+  }
+
   return (
     <AppShell>
       <div className="space-y-5">
@@ -207,6 +235,56 @@ export default function CashierPage({ session, onLogout }) {
                 </button>
               ))}
             </div>
+          </SectionCard>
+        ) : null}
+
+        {!loading ? (
+          <SectionCard
+            title="Online orders"
+            description="Pickup and delivery orders that reached cashier queue."
+          >
+            {onlineOrders.length === 0 ? (
+              <p className="text-sm text-slate-500">No online orders in cashier queue.</p>
+            ) : (
+              <div className="space-y-3">
+                {onlineOrders.map((order) => (
+                  <article key={order.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-slate-500">{order.orderCode}</p>
+                        <p className="font-semibold text-slate-900">{order.orderType}</p>
+                        <p className="text-sm text-slate-600">
+                          {order.customerName || "Customer"} {order.customerPhone ? `- ${order.customerPhone}` : ""}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-slate-500">{order.status}</p>
+                        <p className="text-lg font-semibold text-slate-900">{formatPrice(order.totalPrice)}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      {order.items.map((item) => (
+                        <div key={item.id} className="rounded-xl bg-white px-3 py-2 text-sm text-slate-700">
+                          {item.quantity} x {item.name}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-3">
+                      <button
+                        className={buttonStyles.primary}
+                        disabled={updatingOrderId === order.id}
+                        onClick={() => updateOrderStatus(order.id, "COMPLETED")}
+                        type="button"
+                      >
+                        {updatingOrderId === order.id ? "Updating..." : "Complete online order"}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </SectionCard>
         ) : null}
 

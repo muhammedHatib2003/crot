@@ -20,7 +20,7 @@ const {
 const { listMenuItems, mapMenuItem, MENU_ITEM_AVAILABILITY_INCLUDE } = require("../utils/menu");
 
 const router = express.Router();
-const ALLOWED_EMPLOYEE_ROLES = new Set(["chef", "cashier", "waiter", "inventory_manager"]);
+const ALLOWED_EMPLOYEE_ROLES = new Set(["chef", "cashier", "waiter", "inventory_manager", "courier"]);
 const ALLOWED_TABLE_STATUSES = new Set(["AVAILABLE", "OCCUPIED", "RESERVED", "CLEANING"]);
 
 function mapRestaurant(restaurant) {

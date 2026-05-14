@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const config = require("./config");
@@ -12,6 +13,15 @@ const paymentRoutes = require("./routes/payment");
 const waiterRoutes = require("./routes/waiter");
 const inventoryRoutes = require("./routes/inventory");
 const publicRoutes = require("./routes/public");
+const publicOnlineOrderRoutes = require("./routes/publicOnlineOrder");
+const customerOrdersRoutes = require("./routes/customerOrders");
+const customerAuthRoutes = require("./routes/customerAuth");
+const onlineRoutes = require("./routes/online");
+const meRoutes = require("./routes/me");
+const ownerOnlineRoutes = require("./routes/ownerOnline");
+const courierRoutes = require("./routes/courier");
+const courierAuthRoutes = require("./routes/courierAuth");
+const iyzicoRoutes = require("./modules/payments/iyzico.routes");
 
 const app = express();
 
@@ -38,6 +48,15 @@ app.use("/api/waiter", waiterRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/restaurant", restaurantRoutes);
 app.use("/api/public", publicRoutes);
+app.use("/api/public", publicOnlineOrderRoutes);
+app.use("/api/customer/auth", customerAuthRoutes);
+app.use("/api/customer/orders", customerOrdersRoutes);
+app.use("/api/online", onlineRoutes);
+app.use("/api/me", meRoutes);
+app.use("/api/owner", ownerOnlineRoutes);
+app.use("/api/courier-auth", courierAuthRoutes);
+app.use("/api/courier", courierRoutes);
+app.use("/api/payments", iyzicoRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found." });

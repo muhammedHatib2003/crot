@@ -6,3 +6,4 @@ dist
 api/node_modules
 web/node_modules
 api/prisma/dev.db
+api/uploads

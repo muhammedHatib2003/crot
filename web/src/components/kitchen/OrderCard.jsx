@@ -21,11 +21,12 @@ const TONE_STYLES = {
 
 export default function OrderCard({ order, busy, onAction }) {
   const tone = TONE_STYLES[order.status] || TONE_STYLES.PENDING;
+  const totalItems = order.items.reduce((total, item) => total + (Number(item.quantity) || 0), 0);
 
   return (
     <article
       className={[
-        "relative overflow-hidden rounded-[24px] border p-5 shadow-sm transition",
+        "relative overflow-hidden rounded-[20px] border p-4 shadow-sm transition sm:rounded-[24px] sm:p-5",
         tone.shell,
         order.isLate ? "ring-2 ring-rose-300 ring-offset-2 ring-offset-white" : "",
         order.isNew ? "ring-2 ring-emerald-200 ring-offset-2 ring-offset-white" : ""
@@ -36,8 +37,13 @@ export default function OrderCard({ order, busy, onAction }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">{order.status}</p>
-          <h3 className="mt-3 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">{order.orderCode}</h3>
-          <p className="mt-3 text-lg font-semibold uppercase tracking-[0.12em] text-slate-700">{order.sourceLabel}</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:mt-3 sm:text-3xl md:text-4xl">{order.orderCode}</h3>
+          <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-3">
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-700 sm:text-base">{order.sourceLabel}</p>
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 sm:text-[11px]">
+              {totalItems} items
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-col items-end gap-2">
@@ -52,35 +58,35 @@ export default function OrderCard({ order, busy, onAction }) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <div className="rounded-2xl bg-slate-50 px-3 py-3">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">
+        <div className="rounded-xl bg-slate-50 px-3 py-2.5 sm:rounded-2xl sm:py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Placed</p>
-          <p className="mt-2 text-lg font-bold text-slate-900">{order.placedLabel}</p>
+          <p className="mt-1.5 text-base font-bold text-slate-900 sm:mt-2 sm:text-lg">{order.placedLabel}</p>
         </div>
-        <div className="rounded-2xl bg-slate-50 px-3 py-3">
+        <div className="rounded-xl bg-slate-50 px-3 py-2.5 sm:rounded-2xl sm:py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Started</p>
-          <p className="mt-2 text-lg font-bold text-slate-900">{order.startedLabel}</p>
+          <p className="mt-1.5 text-base font-bold text-slate-900 sm:mt-2 sm:text-lg">{order.startedLabel}</p>
         </div>
-        <div className={`rounded-2xl px-3 py-3 ${order.isLate ? "bg-rose-50" : "bg-slate-50"}`}>
+        <div className={`rounded-xl px-3 py-2.5 sm:rounded-2xl sm:py-3 ${order.isLate ? "bg-rose-50" : "bg-slate-50"}`}>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Elapsed</p>
-          <p className={`mt-2 text-lg font-bold ${order.isLate ? "text-rose-700" : "text-slate-900"}`}>{order.elapsedLabel}</p>
+          <p className={`mt-1.5 text-base font-bold sm:mt-2 sm:text-lg ${order.isLate ? "text-rose-700" : "text-slate-900"}`}>{order.elapsedLabel}</p>
         </div>
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-4 space-y-2.5 sm:mt-5 sm:space-y-3">
         {order.items.map((item) => (
-          <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-xl font-semibold leading-tight text-slate-950">
+          <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3">
+            <p className="text-lg font-semibold leading-tight text-slate-950 sm:text-xl">
               {item.quantity} x {item.name}
             </p>
-            {item.notes ? <p className="mt-2 text-base text-slate-600">{item.notes}</p> : null}
+            {item.notes ? <p className="mt-1.5 text-sm text-slate-600 sm:mt-2 sm:text-base">{item.notes}</p> : null}
           </div>
         ))}
       </div>
 
       <button
         className={[
-          "mt-5 flex min-h-[60px] w-full items-center justify-center rounded-2xl px-4 text-lg font-black uppercase tracking-[0.12em] transition",
+          "mt-4 flex min-h-[52px] w-full items-center justify-center rounded-xl px-4 text-base font-black uppercase tracking-[0.1em] transition sm:mt-5 sm:min-h-[60px] sm:rounded-2xl sm:text-lg sm:tracking-[0.12em]",
           busy ? "cursor-wait bg-slate-200 text-slate-500" : tone.button
         ].join(" ")}
         disabled={busy}

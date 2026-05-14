@@ -1,0 +1,693 @@
+{
+  "app": {
+    "title": "خدمة مطاعم CROT"
+  },
+  "common": {
+    "restaurantFallback": "المطعم",
+    "notAvailable": "-",
+    "empty": "فارغ",
+    "closeDrawer": "إغلاق اللوحة",
+    "closePopup": "إغلاق النافذة المنبثقة",
+    "languageSwitcher": {
+      "label": "اختر اللغة",
+      "shortLabel": "اللغة",
+      "languages": {
+        "en": "English",
+        "tr": "Türkçe",
+        "ar": "العربية"
+      }
+    },
+    "actions": {
+      "refresh": "تحديث",
+      "refreshing": "جارٍ التحديث...",
+      "logout": "تسجيل الخروج",
+      "close": "إغلاق",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ...",
+      "create": "إنشاء",
+      "creating": "جارٍ الإنشاء...",
+      "update": "تحديث",
+      "updating": "جارٍ التحديث...",
+      "add": "إضافة",
+      "adding": "جارٍ الإضافة...",
+      "remove": "إزالة",
+      "review": "مراجعة",
+      "approve": "اعتماد",
+      "reject": "رفض",
+      "signIn": "تسجيل الدخول",
+      "signingIn": "جارٍ تسجيل الدخول...",
+      "createAccount": "إنشاء حساب",
+      "processing": "جارٍ المعالجة..."
+    },
+    "labels": {
+      "status": "الحالة",
+      "customer": "العميل",
+      "phone": "الهاتف",
+      "total": "الإجمالي",
+      "table": "الطاولة",
+      "pickup": "الاستلام",
+      "selected": "المحدد",
+      "currentTime": "الوقت الحالي",
+      "preview": "معاينة",
+      "name": "الاسم",
+      "email": "البريد الإلكتروني",
+      "description": "الوصف",
+      "category": "الفئة",
+      "price": "السعر",
+      "stock": "المخزون",
+      "unit": "الوحدة",
+      "minimumStock": "الحد الأدنى للمخزون",
+      "currentStock": "المخزون الحالي",
+      "ingredients": "المكونات",
+      "orders": "الطلبات"
+    },
+    "loading": {
+      "menu": "جارٍ تحميل القائمة...",
+      "dashboard": "جارٍ تحميل لوحة التحكم...",
+      "orders": "جارٍ تحميل الطلبات...",
+      "workspace": "جارٍ تحميل مساحة العمل...",
+      "tables": "جارٍ تحميل الطاولات...",
+      "cashierTables": "جارٍ تحميل طاولات الكاشير...",
+      "plans": "جارٍ تحميل الخطط...",
+      "users": "جارٍ تحميل المستخدمين...",
+      "recipe": "جارٍ تحميل الوصفة...",
+      "menuItems": "جارٍ تحميل عناصر القائمة...",
+      "couriers": "جارٍ تحميل طلبات التوصيل..."
+    },
+    "errors": {
+      "requestFailed": "فشل الطلب.",
+      "addOneItem": "أضف عنصرًا واحدًا على الأقل.",
+      "nameAndPhoneRequired": "الاسم والهاتف مطلوبان لطلبات الاستلام.",
+      "planPriceWholeNumber": "يجب أن يكون سعر الخطة رقمًا صحيحًا أكبر من 0."
+    },
+    "categories": {
+      "general": "عام",
+      "starter": "مقبلات",
+      "main": "طبق رئيسي",
+      "dessert": "حلويات",
+      "drink": "مشروبات"
+    },
+    "orderStatus": {
+      "pending": "قيد الانتظار",
+      "preparing": "قيد التحضير",
+      "ready": "جاهز",
+      "paid": "مدفوع",
+      "cancelled": "ملغي",
+      "fulfilled": "تم الاعتماد",
+      "rejected": "مرفوض"
+    },
+    "tableStatus": {
+      "available": "متاحة",
+      "occupied": "مشغولة",
+      "reserved": "محجوزة",
+      "cleaning": "قيد التنظيف"
+    },
+    "employeeRole": {
+      "chef": "شيف",
+      "cashier": "كاشير",
+      "waiter": "نادل",
+      "inventory_manager": "مسؤول المخزون"
+    },
+    "systemRole": {
+      "super_admin": "مشرف عام",
+      "owner": "مالك",
+      "employee": "موظف"
+    },
+    "units": {
+      "pcs": "قطعة",
+      "kg": "كيلوغرام",
+      "g": "غرام",
+      "l": "لتر",
+      "ml": "مليلتر"
+    },
+    "paymentMethod": {
+      "card": "بطاقة",
+      "cash": "نقدًا"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "تسجيل دخول خدمة المطعم",
+      "description": "سجّل الدخول كمشرف عام أو مالك أو موظف.",
+      "email": "البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "submit": "تسجيل الدخول",
+      "loading": "جارٍ تسجيل الدخول...",
+      "signupPrompt": "هل أنت مالك مطعم جديد؟",
+      "signupLink": "إنشاء حساب",
+      "courierLink": "دخول الموصّل (حساب منفصل)"
+    },
+    "signup": {
+      "title": "تسجيل مالك المطعم",
+      "description": "أنشئ حساب مطعمك أولًا.",
+      "fullName": "اسمك",
+      "restaurantName": "اسم المطعم",
+      "phone": "الهاتف",
+      "restaurantPhone": "هاتف المطعم",
+      "email": "البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "submit": "إنشاء حساب المالك",
+      "loading": "جارٍ الإنشاء...",
+      "loginPrompt": "هل لديك حساب بالفعل؟",
+      "loginLink": "تسجيل الدخول"
+    }
+  },
+  "admin": {
+    "eyebrow": "مشرف عام",
+    "title": "عناصر تحكم المنصة",
+    "loggedInAs": "تم تسجيل الدخول باسم {{name}} ({{email}})",
+    "planPricing": {
+      "title": "تسعير الخطط",
+      "description": "حدّث السعر الشهري لكل خطة اشتراك.",
+      "code": "الرمز",
+      "name": "الاسم",
+      "descriptionHeader": "الوصف",
+      "monthlyPrice": "السعر الشهري ($)",
+      "action": "الإجراء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ...",
+      "empty": "لم يتم العثور على خطط.",
+      "updated": "تم تحديث سعر خطة {{planName}}."
+    },
+    "users": {
+      "title": "المستخدمون والمطاعم",
+      "description": "قائمة واحدة قابلة للبحث تكفي لمتابعة المنصة.",
+      "name": "الاسم",
+      "email": "البريد الإلكتروني",
+      "systemRole": "دور النظام",
+      "employeeRole": "دور الموظف",
+      "restaurant": "المطعم",
+      "empty": "لم يتم العثور على مستخدمين."
+    },
+    "courierApplications": {
+      "title": "طلبات التوصيل",
+      "description": "راجع وثيقة/شهادة التوصيل. عند الموافقة يُفعّل الحساب؛ يرى الموصّل عروض التوصيل عبر الإنترنت القريبة حسب موقعه.",
+      "name": "الاسم",
+      "email": "البريد",
+      "phone": "الهاتف",
+      "status": "الحالة",
+      "submitted": "تاريخ الطلب",
+      "document": "المستند",
+      "viewDoc": "فتح الملف",
+      "approve": "موافقة",
+      "reject": "رفض",
+      "rejectReasonPlaceholder": "السبب (اختياري، يظهر لمقدّم الطلب)",
+      "processing": "جارٍ الحفظ...",
+      "empty": "لا توجد طلبات.",
+      "filterPending": "قيد المراجعة",
+      "filterAll": "الكل",
+      "statusPending": "معلّق",
+      "statusApproved": "موافق",
+      "statusRejected": "مرفوض",
+      "approvedOk": "تمت الموافقة على الموصّل.",
+      "rejectedOk": "تم رفض الطلب."
+    }
+  },
+  "cashier": {
+    "title": "الكاشير",
+    "eyebrow": "الدور",
+    "description": "تظل صالة الطعام في الواجهة. تشغل الطاولات معظم الشاشة وتظهر تفاصيل الدفع في نافذة منبثقة.",
+    "panelTitle": "الطاولات",
+    "panelDescription": "أصبح عرض الكاشير مركزًا على صالة الطعام فقط. انقر على أي طاولة لفتح نافذة الدفع.",
+    "dueNow": "المستحق الآن",
+    "tablePayment": "دفع الطاولة",
+    "paymentDescription": "راجع الطاولة الحالية وأنهِ عملية الدفع من هذه النافذة.",
+    "readyToPay": "جاهزة للدفع",
+    "readyOrders": "الطلبات الجاهزة",
+    "payWithCard": "الدفع بالبطاقة",
+    "payWithCash": "الدفع نقدًا",
+    "waiting": "بانتظار",
+    "emptyTable": "هذه الطاولة فارغة.",
+    "tableStillActive": "هذه الطاولة لا تزال نشطة، لكن لا يوجد طلب صالة جاهز للدفع بعد.",
+    "messages": {
+      "paymentCompleted": "اكتمل الدفع للطاولة {{tableName}} بواسطة {{method}}."
+    },
+    "tableStatus": {
+      "readyCount": "{{count}} جاهز",
+      "activeCount": "{{count}} نشط",
+      "empty": "فارغة"
+    }
+  },
+  "waiter": {
+    "title": "النادل",
+    "eyebrow": "الدور",
+    "description": "أصبحت الطاولات تملأ الشاشة. انقر على أي طاولة لفتح نافذة الخدمة وإدارة الطلبات منها.",
+    "tablesTitle": "الطاولات",
+    "tablesDescription": "أصبحت الصالة تشغل معظم الواجهة. انقر على طاولة لفتح نافذة الطلب الخاصة بها.",
+    "service": "الخدمة",
+    "serviceLaneTitle": "مسار الخدمة",
+    "serviceLaneDescription": "يبقى الشريط الجانبي صغيرًا حتى تظل الطاولات هي العنصر الأساسي.",
+    "productsLoaded": "المنتجات المحمّلة",
+    "busy": "مشغولة",
+    "ready": "جاهزة",
+    "tableService": "خدمة الطاولة",
+    "tableServiceDescription": "أضف المنتجات، حدّث الطلب المعلق، وأغلق التذاكر الجاهزة من هذه النافذة.",
+    "readyOnTable": "جاهزة على الطاولة",
+    "pendingOrder": "الطلب المعلق",
+    "draftItems": "عناصر المسودة",
+    "activeOrders": "الطلبات النشطة",
+    "draftTotal": "إجمالي المسودة",
+    "none": "لا يوجد",
+    "addProducts": "إضافة منتجات",
+    "addProductsDescription": "اضغط على منتج لإضافته إلى مسودة هذه الطاولة.",
+    "tapProduct": "اضغط على منتج لإضافته إلى مسودة هذه الطاولة.",
+    "productsCount": "{{count}} منتج",
+    "leftInStock": "{{count}} متبقٍ",
+    "openCount": "{{count}} مفتوح",
+    "activeOrdersDescription": "يمكن هنا للنادل تأكيد رؤية التذاكر الجاهزة.",
+    "pendingDraft": "المسودة المعلقة",
+    "pendingDraftEdit": "حدّث أو امسح الطلب المعلق الحالي.",
+    "pendingDraftCreate": "أنشئ طلبًا معلقًا جديدًا لهذه الطاولة.",
+    "editing": "جارٍ التعديل",
+    "newDraft": "مسودة جديدة",
+    "pendingTotal": "إجمالي المعلق",
+    "createOrder": "إنشاء الطلب",
+    "updateOrder": "تحديث الطلب",
+    "deleteDraft": "حذف المسودة",
+    "noActiveOrders": "لا توجد طلبات نشطة على هذه الطاولة.",
+    "noPendingItems": "لا توجد عناصر معلقة لهذه الطاولة بعد.",
+    "markSeen": "تمت الرؤية",
+    "readyTicketSeen": "تمت رؤية التذكرة الجاهزة",
+    "seenAt": "شوهدت عند {{time}}",
+    "paid": "مدفوع",
+    "messages": {
+      "pendingRemoved": "تمت إزالة الطلب المعلق.",
+      "addOneItem": "أضف عنصرًا واحدًا على الأقل قبل الحفظ.",
+      "orderUpdated": "تم تحديث الطلب.",
+      "orderCreated": "تم إنشاء الطلب.",
+      "orderPaid": "تم وضع علامة مدفوع على {{orderCode}}.",
+      "orderSeen": "تم وضع علامة شوهد بواسطة النادل على {{orderCode}}."
+    }
+  },
+  "order": {
+    "headerEyebrow": "طلب QR للطاولة",
+    "tableLabel": "الطاولة {{tableName}}",
+    "currentOrder": "الطلب الحالي",
+    "notesPlaceholder": "ملاحظات لهذا العنصر",
+    "orderSent": "تم إرسال الطلب.",
+    "submit": "إرسال الطلب بمبلغ {{total}}",
+    "submitting": "جارٍ إرسال الطلب...",
+    "noPhoto": "لا توجد صورة"
+  },
+  "pickup": {
+    "eyebrow": "طلب استلام عبر الإنترنت",
+    "description": "اطلب عبر الإنترنت واستلم من المطعم عندما يصبح جاهزًا.",
+    "summaryTitle": "الاستلام",
+    "tenantLabel": "المستأجر: /{{slug}}",
+    "latestOrder": "أحدث طلب استلام",
+    "pickupTime": "وقت الاستلام",
+    "asap": "في أقرب وقت ممكن",
+    "browseMenu": "تصفح القائمة",
+    "chooseItems": "اختر عناصرِك",
+    "browseDescription": "تُحضّر طلبات الاستلام طازجة وتظهر مباشرة للمطبخ.",
+    "selectedCategory": "المحدد",
+    "itemsCount": "{{count}} عنصر",
+    "itemsSelected": "تم اختيار {{count}} عنصر",
+    "customerName": "اسم العميل",
+    "customerNamePlaceholder": "اسمك الكامل",
+    "customerPhone": "الهاتف",
+    "customerPhonePlaceholder": "+90 555 123 45 67",
+    "orderNotes": "ملاحظات الطلب",
+    "orderNotesPlaceholder": "أضف ملاحظة للاستلام أو للمطبخ",
+    "cartTitle": "سلة الاستلام",
+    "cartDescription": "راجع عناصر الطلب قبل الإرسال.",
+    "emptyCart": "سلتك فارغة.",
+    "emptyMenu": "لا توجد قائمة بعد.",
+    "defaultDescription": "عنصر استلام مُحضّر طازجًا.",
+    "unavailable": "غير متاح",
+    "addMore": "إضافة المزيد",
+    "addToCart": "أضف إلى السلة",
+    "submit": "إرسال طلب استلام بقيمة {{total}}",
+    "submitting": "جارٍ إرسال الطلب...",
+    "loading": "جارٍ تحميل القائمة..."
+  },
+  "kitchen": {
+    "brand": "شاشة المطبخ",
+    "tabs": {
+      "orders": "الطلبات",
+      "menu": "القائمة"
+    },
+    "ordersDescription": "إدارة الطلبات الفورية وتتبع التحضير",
+    "menuDescription": "إدارة الأطباق والوصفات وعناصر القائمة",
+    "currentTime": "الوقت الحالي",
+    "allOrders": "كل الطلبات",
+    "dineIn": "داخل المطعم",
+    "takeaway": "سفري",
+    "pickup": "استلام",
+    "pendingOrders": "الطلبات المعلقة",
+    "inPreparation": "قيد التحضير",
+    "createDish": "إنشاء طبق جديد",
+    "dishName": "اسم الطبق",
+    "pricePlaceholder": "0.00",
+    "descriptionPlaceholder": "اكتب وصف الطبق...",
+    "photoUrlPlaceholder": "https://...",
+    "optionalRecipe": "الوصفة اختيارية عند الإنشاء. يمكنك إضافة الأسطر الآن أو حفظ الطبق وتعديله لاحقًا.",
+    "addIngredient": "+ إضافة مكون",
+    "selectIngredient": "اختر مكونًا",
+    "qty": "الكمية",
+    "noIngredientsYet": "لم تتم إضافة أي مكونات بعد.",
+    "createDishButton": "إنشاء الطبق",
+    "menuItems": "عناصر القائمة",
+    "noDishesYet": "لا توجد أطباق بعد. أنشئ أول طبق من الأعلى.",
+    "noImage": "لا توجد صورة",
+    "noDescription": "لا يوجد وصف",
+    "stockLabel": "المخزون: {{count}}",
+    "ingredientsCount": "{{count}} مكون",
+    "noRecipe": "لا توجد وصفة",
+    "editDish": "تعديل: {{name}}",
+    "dishDetails": "تفاصيل الطبق",
+    "photoUrl": "رابط الصورة",
+    "availableOnMenu": "متاح في القائمة",
+    "saveChanges": "حفظ التغييرات",
+    "recipe": "الوصفة",
+    "noRecipeYet": "لا توجد مكونات بعد. أضف بعضها!",
+    "saveRecipe": "حفظ الوصفة",
+    "working": "جارٍ التنفيذ...",
+    "loadingOrders": "جارٍ تحميل الطلبات...",
+    "justNow": "الآن",
+    "minuteAgo": "منذ {{count}} دقيقة",
+    "hoursAgo": "منذ {{label}}",
+    "lessThanMinute": "< دقيقة",
+    "source": {
+      "pickup": "استلام",
+      "table": "طاولة"
+    },
+    "action": {
+      "pending": "ابدأ",
+      "preparing": "جاهز",
+      "ready": "أكمل"
+    },
+    "column": {
+      "orders": "الطلبات",
+      "pending": "معلق",
+      "preparing": "قيد التحضير",
+      "ready": "جاهز",
+      "empty": "لا توجد طلبات في عمود {{column}}."
+    },
+    "card": {
+      "new": "جديد",
+      "placed": "تم الاستلام",
+      "started": "بدأ",
+      "elapsed": "الوقت المنقضي"
+    }
+  },
+  "inventory": {
+    "brand": "StockFlow",
+    "tabs": {
+      "overview": "نظرة عامة",
+      "ingredients": "المكونات",
+      "requests": "الطلبات",
+      "menu": "تأثير القائمة",
+      "movements": "الحركات"
+    },
+    "descriptions": {
+      "overview": "صحة المخزون والمؤشرات الرئيسية في لمحة",
+      "ingredients": "إدارة مستويات مخزون المكونات",
+      "requests": "مراجعة واعتماد طلبات المطبخ",
+      "menu": "شاهد كيف يؤثر المخزون على توفر القائمة",
+      "movements": "تتبع جميع تغييرات المخزون"
+    },
+    "metrics": {
+      "ingredients": "المكونات",
+      "ingredientsDetail": "تتم متابعتها في المخزون",
+      "lowStock": "مخزون منخفض",
+      "lowStockDetail": "تحتاج إلى انتباه",
+      "pendingRequests": "طلبات معلقة",
+      "pendingRequestsDetail": "{{count}} بانتظار الاعتماد",
+      "orderableMenu": "القائمة المتاحة للطلب",
+      "orderableMenuDetail": "من أصل {{total}} طبق"
+    },
+    "overview": {
+      "lowStockTitle": "تنبيهات انخفاض المخزون",
+      "lowStockDescription": "مكونات تحتاج إلى اهتمام فوري",
+      "allGood": "كل شيء جيد!",
+      "noLowStock": "لا توجد عناصر منخفضة المخزون حاليًا.",
+      "pendingRequestsTitle": "الطلبات المعلقة",
+      "pendingRequestsDescription": "بانتظار اعتمادك",
+      "noPendingRequests": "لا توجد طلبات معلقة",
+      "caughtUp": "كل شيء تحت السيطرة.",
+      "menuOverviewTitle": "نظرة عامة على القائمة",
+      "menuOverviewDescription": "كيف يؤثر المخزون على قائمتك",
+      "orderableDishes": "أطباق متاحة للطلب",
+      "blockedDishes": "أطباق محجوبة",
+      "limitedByStock": "محدودة بالمخزون",
+      "missingRecipes": "وصفات مفقودة",
+      "update": "تحديث"
+    },
+    "ingredients": {
+      "addTitle": "إضافة مكون جديد",
+      "addDescription": "أنشئ عناصر المخزون لمطبخك",
+      "name": "اسم المكون",
+      "namePlaceholder": "مثال: طماطم، دقيق، زيت زيتون",
+      "unit": "الوحدة",
+      "minimumStock": "الحد الأدنى للمخزون",
+      "currentStock": "المخزون الحالي",
+      "submit": "إضافة مكون",
+      "stockTitle": "مخزون المكونات",
+      "stockDescription": "مستويات المخزون الحالية",
+      "minimum": "الحد الأدنى: {{value}} {{unit}}",
+      "healthy": "جيد",
+      "low": "منخفض",
+      "empty": "لا توجد مكونات بعد",
+      "emptyDescription": "أضف أول مكون للبدء."
+    },
+    "requests": {
+      "title": "طلبات المطبخ",
+      "description": "اعتمد أو ارفض طلبات المكونات من طاقم المطبخ",
+      "addToForm": "إضافة إلى النموذج",
+      "empty": "لا توجد طلبات",
+      "emptyDescription": "كل شيء منجز. لا توجد طلبات معلقة."
+    },
+    "menu": {
+      "title": "عناصر القائمة",
+      "description": "كيف يؤثر المخزون على كل طبق",
+      "dish": "الطبق",
+      "recipe": "الوصفة",
+      "status": "الحالة",
+      "stockImpact": "تأثير المخزون",
+      "recipeMissing": "الوصفة مفقودة",
+      "orderable": "متاح للطلب",
+      "hidden": "مخفي",
+      "blocked": "محجوب",
+      "empty": "لا توجد عناصر قائمة",
+      "emptyDescription": "أضف أطباقًا لرؤية تأثير المخزون."
+    },
+    "movements": {
+      "title": "آخر حركات المخزون",
+      "description": "تتبع جميع تغييرات المخزون",
+      "updated": "تم تحديث المخزون",
+      "newStock": "الجديد: {{value}} {{unit}}",
+      "empty": "لا توجد حركات بعد",
+      "emptyDescription": "ستظهر تحديثات المخزون هنا."
+    },
+    "messages": {
+      "requestLoaded": "تم تحميل {{name}} في نموذج الإضافة.",
+      "ingredientAdded": "تمت إضافة المكون.",
+      "stockUpdated": "تم تحديث مخزون {{name}}.",
+      "requestMarked": "تم وضع علامة {{status}} على {{name}}."
+    }
+  },
+  "owner": {
+    "eyebrow": "مساحة المالك",
+    "description": "أدر الموظفين والطاولات والقائمة وإعدادات العمل من مساحة مالك واحدة.",
+    "planRequired": "الخطة مطلوبة قبل تفعيل أدوات الموظفين والطاولات والقائمة.",
+    "tabs": {
+      "overview": "نظرة عامة",
+      "staff": "الموظفون",
+      "tables": "الطاولات",
+      "menu": "القائمة",
+      "inventory": "المخزون",
+      "settings": "الإعدادات"
+    },
+    "metrics": {
+      "staff": "الموظفون",
+      "staffDetail": "حسابات الموظفين النشطة",
+      "tables": "الطاولات",
+      "tablesDetail": "طاولات الصالة المهيأة",
+      "menu": "القائمة",
+      "menuDetail": "عناصر القائمة التي يجب إدارتها",
+      "plan": "الخطة",
+      "planRequired": "مطلوبة",
+      "planDetail": "اختر خطة لتفعيل التشغيل"
+    },
+    "steps": {
+      "selectPlan": "اختر خطة اشتراك.",
+      "addTable": "أضف أول طاولة.",
+      "addMenuItem": "أضف أول عنصر قائمة.",
+      "inviteStaff": "ادعُ حسابات الموظفين."
+    },
+    "plan": {
+      "none": "لا توجد خطة نشطة",
+      "current": "الخطة الحالية",
+      "use": "استخدام {{name}}",
+      "select": "اختر خطة"
+    }
+  },
+  "ownerOnline": {
+    "panel": "لوحة المالك",
+    "title": "إدارة الطلبات عبر الإنترنت",
+    "mainPanel": "لوحة المالك الرئيسية",
+    "tabs": {
+      "general": "معلومات عامة",
+      "location": "الموقع والتوصيل",
+      "hours": "ساعات العمل",
+      "menu": "إدارة القائمة",
+      "orders": "الطلبات",
+      "photos": "الصور"
+    }
+  },
+  "onlineAuth": {
+    "login": {
+      "title": "تسجيل دخول الطلبات الإلكترونية",
+      "description": "سجّل الدخول لإجراء الطلبات.",
+      "signupPrompt": "ليس لديك حساب؟",
+      "signupLink": "إنشاء حساب"
+    },
+    "signup": {
+      "title": "تسجيل عميل جديد",
+      "description": "أنشئ حساب عميل جديد.",
+      "fullName": "الاسم الكامل",
+      "loading": "جارٍ إنشاء الحساب...",
+      "submit": "إنشاء الحساب",
+      "loginPrompt": "لديك حساب بالفعل؟",
+      "loginLink": "تسجيل الدخول"
+    }
+  },
+  "onlineOrder": {
+    "title": "الطلب الإلكتروني",
+    "description": "اعثر على المطاعم حسب موقعك أو عنوانك المحفوظ.",
+    "nav": {
+      "signIn": "تسجيل الدخول",
+      "myOrders": "طلباتي"
+    },
+    "useMyLocation": "استخدم موقعي",
+    "status": {
+      "granted": "الموقع المباشر مفعّل.",
+      "mapPicked": "الموقع المختار من الخريطة مفعّل.",
+      "savedAddress": "اختيار العنوان المحفوظ مفعّل.",
+      "denied": "تم رفض إذن الموقع، اختر عنوانًا أو مدينة/منطقة.",
+      "unsupported": "المتصفح لا يدعم ميزة الموقع.",
+      "requesting": "جارٍ تحديد الموقع..."
+    },
+    "fallback": {
+      "title": "استخدم العنوان بدلًا من الموقع",
+      "selectSavedAddress": "اختر عنوانًا محفوظًا",
+      "loginForSavedAddress": "سجّل الدخول لاختيار عنوان محفوظ.",
+      "mapHint": "إذا لم يعمل GPS اختر نقطة من الخريطة."
+    },
+    "map": {
+      "picked": "تم اختيار الموقع من الخريطة.",
+      "reverseGeocodeFailed": "تم اختيار الموقع، لكن تعذر تعبئة المدينة/المنطقة تلقائيًا."
+    },
+    "filters": {
+      "search": "بحث",
+      "searchPlaceholder": "مطعم أو مطبخ",
+      "city": "المدينة",
+      "cityPlaceholder": "المدينة",
+      "district": "المنطقة",
+      "districtPlaceholder": "المنطقة",
+      "sort": "الترتيب",
+      "onlyOpen": "المفتوحة فقط",
+      "delivery": "توصيل",
+      "pickup": "استلام"
+    },
+    "sort": {
+      "nearest": "الأقرب",
+      "fastest": "الأسرع توصيلًا",
+      "minimumOrder": "الحد الأدنى للسلة",
+      "deliveryFee": "رسوم التوصيل",
+      "rating": "التقييم"
+    },
+    "loading": "جارٍ تحميل المطاعم...",
+    "empty": "لا توجد مطاعم مطابقة للفلاتر."
+  },
+  "onlineCart": {
+    "mapPinAddress": "نقطة التسليم على الخريطة",
+    "backToRestaurants": "كل المطاعم",
+    "backToMenu": "العودة للقائمة",
+    "saveAddressIncomplete": "اختر نقطة على الخريطة أو املأ حقول العنوان قبل الحفظ.",
+    "checkoutAddressIncomplete": "للتوصيل، اختر عنوانًا محفوظًا بإحداثيات أو حدد نقطة على الخريطة (يُكمَل العنوان تلقائيًا عند الإمكان)."
+  },
+  "courierPortal": {
+    "login": {
+      "title": "دخول الموصّل",
+      "description": "استخدم حساب التوصيل. يُفعّل الدخول بعد موافقة المشرف العام على وثيقتك.",
+      "submit": "تسجيل الدخول",
+      "loading": "جارٍ تسجيل الدخول...",
+      "signupPrompt": "موصّل جديد؟",
+      "signupLink": "التسجيل ورفع الوثيقة",
+      "staffLink": "دخول موظفي المطعم"
+    },
+    "signup": {
+      "title": "تسجيل موصّل",
+      "description": "ارفع وثيقة/شهادة التوصيل (kurye belgesi). يراجعها المشرف العام؛ لا يمكنك تسجيل الدخول قبل الموافقة.",
+      "fullName": "الاسم الكامل",
+      "phone": "الهاتف (اختياري)",
+      "document": "ملف الوثيقة",
+      "documentHint": "PDF أو JPG أو PNG أو WEBP — بحد أقصى 8 ميجابايت.",
+      "documentRequired": "يرجى إرفاق ملف الوثيقة.",
+      "submit": "إرسال الطلب",
+      "submitting": "جارٍ الإرسال...",
+      "success": "تم استلام الطلب. سيتم توجيهك لتسجيل الدخول.",
+      "loginPrompt": "لديك حساب؟",
+      "loginLink": "دخول الموصّل"
+    }
+  },
+  "courier": {
+    "title": "التوصيل",
+    "eyebrow": "الدور",
+    "platformLabel": "المنصة حسب الموقع",
+    "description": "اعرض الطلبات الجاهزة القريبة؛ أول من يقبل يحصل على المهمة. خريطة مباشرة للمطعم والعميل وموقعك.",
+    "loading": "جارٍ تحميل بيانات التوصيل...",
+    "locationHint": "فعّل مشاركة الموقع لعرض الطلبات القريبة. اسمح للمتصفح بالموقع أو انتظر تحديث GPS.",
+    "tabs": {
+      "offers": "عروض قريبة",
+      "queue": "طلباتي"
+    },
+    "map": {
+      "title": "خريطة مباشرة",
+      "description": "المطعم (أزرق)، التسليم (أحمر)، أنت (أخضر). الخط يمثل مسافة تقريبية.",
+      "pickup": "المطعم",
+      "dropoff": "العميل",
+      "you": "أنت"
+    },
+    "offers": {
+      "title": "عروض مفتوحة",
+      "description": "المطبخ جهّز هذه الطلبات. أول موصّل يقبل يأخذ المهمة.",
+      "distance": "حوالي {{km}} كم بينك وبين المطعم",
+      "empty": "لا توجد طلبات قريبة. ابقَ متصلًا وفعّل الموقع."
+    },
+    "queue": {
+      "title": "المعيّنة لك",
+      "stats": "جاهز: {{ready}} • في الطريق: {{served}}",
+      "empty": "لا طلبات نشطة. اقبل عرضًا من التبويب الآخر."
+    },
+    "status": {
+      "ready": "جاهز للاستلام",
+      "assigned": "معيّن — استلم من المطعم",
+      "onTheWay": "في الطريق"
+    },
+    "fields": {
+      "customer": "العميل:",
+      "phone": "الهاتف:",
+      "address": "العنوان:",
+      "note": "ملاحظة:"
+    },
+    "actions": {
+      "accept": "قبول التوصيل",
+      "accepting": "جارٍ القبول...",
+      "pickup": "تم الاستلام — ابدأ التوصيل",
+      "delivered": "تم التسليم",
+      "updating": "جارٍ التحديث...",
+      "enableNotify": "تنبيهات المتصفح"
+    },
+    "messages": {
+      "accepted": "تم تعيين التوصيل لك.",
+      "updated": "تم تحديث {{code}}."
+    },
+    "notify": {
+      "newTitle": "طلب توصيل قريب",
+      "newBody": "ظهر طلب جاهز في منطقتك. افتح لوحة التوصيل."
+    }
+  }
+}

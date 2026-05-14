@@ -14,15 +14,24 @@ enum SystemRole {
 }
 
 enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_FAILED
   PENDING
   SENT_TO_KITCHEN
   ACCEPTED
   PREPARING
   READY
+  ON_THE_WAY
   SERVED
   PAID
   COMPLETED
   CANCELLED
+  REJECTED
+}
+
+enum PaymentProvider {
+  IYZICO
+  MANUAL
 }
 
 enum OrderType {
@@ -33,13 +42,17 @@ enum OrderType {
 
 enum PaymentStatus {
   UNPAID
+  PENDING
   PAID
+  FAILED
   REFUNDED
 }
 
 enum PaymentMethod {
   CASH
   CARD
+  CARD_ON_DELIVERY
+  ONLINE
 }
 
 enum StockMovementType {
@@ -70,43 +83,193 @@ enum PurchaseOrderStatus {
   CANCELLED
 }
 
+enum CourierAccountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Restaurant {
-  id                    String            @id @default(uuid())
-  name                  String
-  slug                  String?           @default(cuid())
-  phone                 String?
-  logoUrl               String?
-  publicOrderingEnabled Boolean           @default(true)
-  pickupEnabled         Boolean           @default(true)
-  users                 User[]
-  tables                DiningTable[]
-  menuItems             MenuItem[]
-  orders                Order[]
-  kitchenOrders         KitchenOrder[]
-  orderItems            OrderItem[]
-  payments              Payment[]
-  ingredients           Ingredient[]
-  ingredientStocks      IngredientStock[]
-  recipes               Recipe[]
-  stockMovements        StockMovement[]
-  ingredientRequests    IngredientRequest[]
-  suppliers             Supplier[]
-  purchaseOrders        PurchaseOrder[]
-  subscription          Subscription?
-  createdAt             DateTime          @default(now())
+  id                       String                  @id @default(uuid())
+  name                     String
+  slug                     String?                 @unique @default(cuid())
+  description              String?
+  cuisineType              String?
+  phone                    String?
+  city                     String?
+  district                 String?
+  address                  String?
+  addressText              String?
+  latitude                 Float?
+  longitude                Float?
+  logoUrl                  String?
+  coverImageUrl            String?
+  isOpen                   Boolean                 @default(true)
+  onlineOrderingEnabled    Boolean                 @default(true)
+  isOnlineOrderingEnabled  Boolean                 @default(true)
+  deliveryEnabled          Boolean                 @default(true)
+  baseDeliveryFee          Float                   @default(0)
+  feePerKm                 Float                   @default(0)
+  deliveryFee              Float                   @default(0)
+  minOrderAmount           Float                   @default(0)
+  minimumOrderAmount       Float                   @default(0)
+  freeDeliveryThreshold    Float?
+  estimatedDeliveryMinutes Int                     @default(35)
+  deliveryRadiusKm         Float                   @default(5)
+  publicOrderingEnabled    Boolean                 @default(true)
+  pickupEnabled            Boolean                 @default(true)
+  ratingAverage            Float                   @default(0)
+  ratingCount              Int                     @default(0)
+  users                    User[]
+  tables                   DiningTable[]
+  menuItems                MenuItem[]
+  categories               Category[]
+  products                 Product[]
+  openingHours             RestaurantOpeningHour[]
+  orders                   Order[]
+  kitchenOrders            KitchenOrder[]
+  orderItems               OrderItem[]
+  payments                 Payment[]
+  ingredients              Ingredient[]
+  ingredientStocks         IngredientStock[]
+  recipes                  Recipe[]
+  stockMovements           StockMovement[]
+  ingredientRequests       IngredientRequest[]
+  suppliers                Supplier[]
+  purchaseOrders           PurchaseOrder[]
+  subscription             Subscription?
+  courierAccounts          CourierAccount[]
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @default(now()) @updatedAt
+}
+
+model RestaurantOpeningHour {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  dayOfWeek    Int
+  openTime     String
+  closeTime    String
+  isClosed     Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
+
+  @@unique([restaurantId, dayOfWeek])
+  @@index([restaurantId, dayOfWeek])
+}
+
+model Category {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  name         String
+  sortOrder    Int        @default(0)
+  isActive     Boolean    @default(true)
+  products     Product[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, sortOrder])
+}
+
+model Product {
+  id                 String      @id @default(uuid())
+  restaurantId       String
+  restaurant         Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categoryId         String?
+  category           Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  name               String
+  description        String?
+  price              Float
+  imageUrl           String?
+  isAvailable        Boolean     @default(true)
+  preparationMinutes Int         @default(20)
+  sortOrder          Int         @default(0)
+  orderItems         OrderItem[]
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @default(now()) @updatedAt
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, categoryId, sortOrder])
 }
 
 model User {
-  id           String      @id @default(uuid())
-  fullName     String
-  email        String      @unique
-  phone        String?
-  passwordHash String
-  systemRole   SystemRole
-  employeeRole String?
-  restaurantId String?
-  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  createdAt    DateTime    @default(now())
+  id                          String           @id @default(uuid())
+  fullName                    String
+  email                       String           @unique
+  phone                       String?
+  passwordHash                String
+  systemRole                  SystemRole
+  employeeRole                String?
+  restaurantId                String?
+  restaurant                  Restaurant?      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  reviewedCourierApplications CourierAccount[] @relation("CourierReviewedBy")
+  createdAt                   DateTime         @default(now())
+}
+
+model CourierAccount {
+  id                       String               @id @default(uuid())
+  email                    String               @unique
+  passwordHash             String
+  fullName                 String
+  phone                    String?
+  documentUrl              String
+  documentOriginalName     String?
+  status                   CourierAccountStatus @default(PENDING)
+  restaurantId             String?
+  restaurant               Restaurant?          @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+  reviewedByUserId         String?
+  reviewedBy               User?                @relation("CourierReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt               DateTime?
+  rejectionReason          String?
+  courierLatitude          Float?
+  courierLongitude         Float?
+  courierLocationUpdatedAt DateTime?
+  assignedOrders           Order[]              @relation("OrderAssignedCourierAccount")
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @default(now()) @updatedAt
+
+  @@index([status, createdAt])
+  @@index([restaurantId])
+}
+
+model Customer {
+  id            String        @id @default(uuid())
+  fullName      String
+  email         String        @unique
+  phone         String?
+  passwordHash  String
+  userAddresses UserAddress[]
+  onlineOrders  Order[]       @relation("CustomerOnlineOrders")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
+}
+
+model UserAddress {
+  id           String   @id @default(uuid())
+  userId       String
+  user         Customer @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  receiverName String
+  phone        String
+  addressText  String
+  city         String?
+  district     String?
+  neighborhood String?
+  buildingNo   String?
+  latitude     Float?
+  longitude    Float?
+  floor        String?
+  apartmentNo  String?
+  doorNo       String?
+  note         String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@index([userId, isDefault])
+  @@index([userId, createdAt])
 }
 
 model Plan {
@@ -171,18 +334,37 @@ model Order {
   source              String          @default("WAITER")
   status              OrderStatus     @default(PENDING)
   paymentStatus       PaymentStatus   @default(UNPAID)
+  paymentMethod       PaymentMethod?
   tableNumber         String?
-  customerName        String?
+  customerUserId      String?
+  customerId            String?
+  customer              Customer?       @relation("CustomerOnlineOrders", fields: [customerId], references: [id], onDelete: SetNull)
+  assignedCourierAccountId String?
+  assignedCourierAccount   CourierAccount? @relation("OrderAssignedCourierAccount", fields: [assignedCourierAccountId], references: [id], onDelete: SetNull)
+  courierAcceptedAt        DateTime?
+  customerName          String?
   customerPhone       String?
+  customerAddress     String?
+  deliveryAddressText String?
+  deliveryLatitude    Float?
+  deliveryLongitude   Float?
+  distanceKm          Float?
   pickupTime          DateTime?
+  note                String?
   notes               String?
+  subtotalCents       Int             @default(0)
+  deliveryFeeCents    Int             @default(0)
   totalCents          Int
+  subtotal            Float           @default(0)
+  deliveryFee         Float           @default(0)
+  total               Float           @default(0)
   restaurantId        String
   restaurant          Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   tableId             String?
   table               DiningTable?    @relation(fields: [tableId], references: [id], onDelete: Cascade)
   paymentId           String?
   payment             Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  orderPayment        OrderPayment?
   items               OrderItem[]
   kitchenOrder        KitchenOrder?
   stockMovements      StockMovement[]
@@ -202,6 +384,11 @@ model Order {
   @@index([tableId, status])
   @@index([paymentId])
   @@index([restaurantId, createdAt])
+  @@index([customerUserId, createdAt])
+  @@index([customerId, createdAt])
+  @@index([restaurantId, source, createdAt])
+  @@index([assignedCourierAccountId, status])
+  @@index([restaurantId, orderType, status, assignedCourierAccountId])
 }
 
 model KitchenOrder {
@@ -221,40 +408,40 @@ model KitchenOrder {
 }
 
 model Ingredient {
-  id                String              @id @default(uuid())
-  name              String
-  unit              String
-  minStock          Decimal             @default(0) @db.Decimal(12, 3)
-  restaurantId      String
-  restaurant        Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  stock             IngredientStock?
-  recipeIngredients RecipeIngredient[]
-  stockMovements    StockMovement[]
+  id                 String              @id @default(uuid())
+  name               String
+  unit               String
+  minStock           Decimal             @default(0) @db.Decimal(12, 3)
+  restaurantId       String
+  restaurant         Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  stock              IngredientStock?
+  recipeIngredients  RecipeIngredient[]
+  stockMovements     StockMovement[]
   ingredientRequests IngredientRequest[]
-  purchaseItems     PurchaseOrderItem[]
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @default(now()) @updatedAt
+  purchaseItems      PurchaseOrderItem[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @default(now()) @updatedAt
 
   @@unique([restaurantId, name])
   @@index([restaurantId, createdAt])
 }
 
 model IngredientRequest {
-  id              String     @id @default(uuid())
-  restaurantId    String
-  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  ingredientId    String?
-  ingredient      Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  id                      String      @id @default(uuid())
+  restaurantId            String
+  restaurant              Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  ingredientId            String?
+  ingredient              Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
   requestedIngredientName String?
-  requestedUnit   String?
-  quantity        Decimal    @db.Decimal(12, 3)
-  status          String     @default("PENDING")
-  note            String?
-  requestedByName String
-  handledByName   String?
-  handledAt       DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @default(now()) @updatedAt
+  requestedUnit           String?
+  quantity                Decimal     @db.Decimal(12, 3)
+  status                  String      @default("PENDING")
+  note                    String?
+  requestedByName         String
+  handledByName           String?
+  handledAt               DateTime?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @default(now()) @updatedAt
 
   @@index([restaurantId, status, createdAt])
   @@index([ingredientId, createdAt])
@@ -273,19 +460,19 @@ model IngredientStock {
 }
 
 model Recipe {
-  id           String             @id @default(uuid())
-  restaurantId String
-  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  menuItemId   String             @unique
-  menuItem     MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  approvalStatus String           @default("APPROVED")
+  id              String             @id @default(uuid())
+  restaurantId    String
+  restaurant      Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItemId      String             @unique
+  menuItem        MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  approvalStatus  String             @default("APPROVED")
   submittedByName String?
   lastSubmittedAt DateTime?
-  approvedByName String?
+  approvedByName  String?
   approvedAt      DateTime?
-  ingredients  RecipeIngredient[]
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @default(now()) @updatedAt
+  ingredients     RecipeIngredient[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @default(now()) @updatedAt
 
   @@index([restaurantId, createdAt])
 }
@@ -372,22 +559,29 @@ model PurchaseOrderItem {
 }
 
 model OrderItem {
-  id           String      @id @default(uuid())
-  orderId      String
-  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  restaurantId String?
-  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  menuItemId   String
-  menuItem     MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
-  nameSnapshot String
-  priceCents   Int
-  quantity     Int
-  notes        String?
-  createdAt    DateTime    @default(now())
+  id                  String      @id @default(uuid())
+  orderId             String
+  order               Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurantId        String?
+  restaurant          Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItemId          String?
+  menuItem            MenuItem?   @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  productId           String?
+  product             Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  nameSnapshot        String
+  productNameSnapshot String?
+  priceCents          Int         @default(0)
+  unitPriceSnapshot   Float?
+  quantity            Int
+  totalPrice          Float       @default(0)
+  note                String?
+  notes               String?
+  createdAt           DateTime    @default(now())
 
   @@index([orderId])
   @@index([restaurantId, orderId])
   @@index([menuItemId])
+  @@index([productId])
 }
 
 model Payment {
@@ -404,4 +598,24 @@ model Payment {
 
   @@index([restaurantId, createdAt])
   @@index([tableId, createdAt])
+}
+
+model OrderPayment {
+  id              String          @id @default(uuid())
+  orderId         String          @unique
+  order           Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider        PaymentProvider @default(IYZICO)
+  status          PaymentStatus   @default(PENDING)
+  price           Float
+  currency        String          @default("TRY")
+  conversationId  String?
+  token           String?
+  iyzicoPaymentId String?
+  rawResponse     Json?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @default(now()) @updatedAt
+
+  @@index([token])
+  @@index([conversationId])
+  @@index([provider, status])
 }
