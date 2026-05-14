@@ -13,7 +13,9 @@ MVP SaaS starter for restaurants and cafes with:
 - `Cashier receipts`: cash/card checkout with saved receipt records
 - Stack: `React + Tailwind + Express + PostgreSQL + Prisma + Docker`
 
-## 1) Run with Docker
+## 1) Run with Docker (local development only)
+
+`docker-compose.yml` is provided strictly for local development. It is **not** used for the production deployment (production = Render + Vercel — see section 10).
 
 ```bash
 docker compose up --build
@@ -173,7 +175,103 @@ All new APIs follow:
 - `{ success: true, data: ... }`
 - `{ success: false, message: ... }`
 
-## 9) Database Update Notes
+## 9) Health check
+
+The API exposes a lightweight health endpoint useful for Render health checks and uptime monitoring:
+
+```
+GET /api/health
+GET /health
+
+200 OK
+{ "ok": true, "service": "api", "env": "production", "time": "..." }
+```
+
+## 10) Production deployment (Render + Vercel)
+
+The project is split into two services in production:
+
+| Component | Host | Notes |
+| --- | --- | --- |
+| Backend (Express + Prisma) | **Render Web Service** | `api/` folder |
+| Database (PostgreSQL) | **Render PostgreSQL** | managed |
+| Frontend (Vite/React) | **Vercel** | `web/` folder |
+
+### 10.1) Create the database on Render
+
+1. Render Dashboard → **New +** → **PostgreSQL**.
+2. Pick region/plan, create the database.
+3. Copy the **Internal Database URL** (preferred — same region) or **External Database URL**.
+
+### 10.2) Deploy the API on Render
+
+1. Render Dashboard → **New +** → **Web Service** → connect this GitHub repo.
+2. **Root Directory**: `api`
+3. **Environment**: `Node`
+4. **Build Command**:
+   ```bash
+   npm install && npx prisma generate
+   ```
+   (The `postinstall` hook also runs `prisma generate` automatically, so `npm install` alone is sufficient — the explicit command is harmless and a useful safety net.)
+5. **Start Command**:
+   ```bash
+   npm start
+   ```
+6. **Health Check Path**: `/api/health`
+7. **Environment variables** (see `api/.env.example` for the full list):
+
+   | Key | Example value |
+   | --- | --- |
+   | `NODE_ENV` | `production` |
+   | `DATABASE_URL` | Render Postgres connection string |
+   | `JWT_SECRET` | long random string |
+   | `SERVICE_PASSKEY` | your shared employee passkey |
+   | `CLIENT_URL` | `https://your-frontend.vercel.app` |
+   | `CLIENT_ORIGINS` *(optional)* | comma-separated extra origins |
+   | `IYZICO_API_KEY` | from Iyzico panel |
+   | `IYZICO_SECRET_KEY` | from Iyzico panel |
+   | `IYZICO_BASE_URL` | `https://sandbox-api.iyzipay.com` (or live URL) |
+   | `API_URL` | `https://your-api.onrender.com` |
+
+   Render automatically injects `PORT`; the API reads `process.env.PORT` and binds to it.
+
+8. After the first deploy, run the database migration / seed once from Render's **Shell** tab:
+   ```bash
+   npx prisma db push
+   npm run seed   # optional, creates super admin + demo data
+   ```
+
+### 10.3) Deploy the frontend on Vercel
+
+1. Vercel Dashboard → **Add New… → Project** → import this repo.
+2. **Root Directory**: `web`
+3. **Framework Preset**: Vite (auto-detected; `web/vercel.json` also pins it).
+4. **Build Command**: `npm run build` (default)
+5. **Output Directory**: `dist` (default)
+6. **Environment Variables**:
+
+   | Key | Example value |
+   | --- | --- |
+   | `VITE_API_URL` | `https://your-api.onrender.com` |
+
+   The frontend appends `/api` automatically, so set `VITE_API_URL` to the **root** of the Render API.
+
+7. SPA fallback is already configured in `web/vercel.json`; deep links such as `/owner/online-orders` will resolve correctly.
+
+### 10.4) Post-deploy checklist
+
+- [ ] `GET https://your-api.onrender.com/api/health` returns `{ ok: true }`.
+- [ ] Vercel frontend loads without CORS errors in DevTools.
+- [ ] Login (super admin / owner) works end-to-end.
+- [ ] An owner can create a menu item and place an online order.
+- [ ] Iyzico checkout redirect URL points to the Vercel domain.
+
+### 10.5) Notes / caveats
+
+- Render's free tier filesystem is **ephemeral** — uploads written to `api/uploads/` (currently used only by courier signup documents) will be lost on every redeploy. For production you should move that flow to S3/Cloudinary; the current behaviour is preserved so nothing is silently broken.
+- `docker-compose.yml` is **not** used by Render or Vercel; it stays in the repo only for local development convenience.
+
+## 11) Database Update Notes
 
 After pulling these changes:
 

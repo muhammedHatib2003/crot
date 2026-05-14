@@ -1,4 +1,23 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+function resolveApiBaseUrl() {
+  const rawBase = import.meta.env.VITE_API_BASE_URL;
+  const rawRoot = import.meta.env.VITE_API_URL;
+  const fallback = "http://localhost:4000";
+
+  const candidate = (rawBase || rawRoot || fallback).trim();
+  const withoutTrailingSlash = candidate.replace(/\/+$/, "");
+
+  if (/\/api$/i.test(withoutTrailingSlash)) {
+    return withoutTrailingSlash;
+  }
+
+  return `${withoutTrailingSlash}/api`;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+export function getApiBaseUrl() {
+  return API_BASE_URL;
+}
 
 export function getApiOrigin() {
   return String(API_BASE_URL).replace(/\/api\/?$/, "");

@@ -1,6 +1,8 @@
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const compression = require("compression");
 const config = require("./config");
 const prisma = require("./db");
 const authRoutes = require("./routes/auth");
@@ -25,17 +27,77 @@ const iyzicoRoutes = require("./modules/payments/iyzico.routes");
 
 const app = express();
 
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+
+function normalizeOriginValue(value) {
+  if (!value) {
+    return "";
+  }
+  return String(value).trim().replace(/\/+$/, "").toLowerCase();
+}
+
+const DEFAULT_DEV_ORIGINS = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3000"
+];
+
+const allowedOrigins = new Set(
+  [config.clientUrl, ...config.extraClientOrigins, ...DEFAULT_DEV_ORIGINS]
+    .map(normalizeOriginValue)
+    .filter(Boolean)
+);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const normalized = normalizeOriginValue(origin);
+
+    if (allowedOrigins.has(normalized)) {
+      return callback(null, true);
+    }
+
+    if (!config.isProduction) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: false,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+};
+
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(compression());
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
 app.use(
-  cors({
-    origin: true,
-    credentials: false
+  "/uploads",
+  express.static(path.join(__dirname, "..", "uploads"), {
+    fallthrough: true,
+    maxAge: "1d"
   })
 );
-app.use(express.json());
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
+function healthHandler(req, res) {
+  res.json({
+    ok: true,
+    service: "api",
+    env: config.nodeEnv,
+    time: new Date().toISOString()
+  });
+}
+
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/plans", plansRoutes);
@@ -62,23 +124,49 @@ app.use((req, res) => {
   res.status(404).json({ message: "Route not found." });
 });
 
-app.use((error, req, res, next) => {
-  console.error(error);
-  res.status(500).json({
-    message: "Internal server error."
-  });
+app.use((error, req, res, _next) => {
+  if (error && /not allowed by CORS/i.test(error.message || "")) {
+    return res.status(403).json({ message: "Origin not allowed." });
+  }
+
+  if (!config.isProduction) {
+    console.error(error);
+  } else {
+    console.error(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} -> ${error?.message || error}`);
+  }
+
+  const status = error?.status || 500;
+  const payload = { message: status === 500 ? "Internal server error." : error.message };
+
+  if (!config.isProduction && error?.stack) {
+    payload.stack = error.stack;
+  }
+
+  return res.status(status).json(payload);
 });
 
-process.on("SIGINT", async () => {
-  await prisma.$disconnect();
-  process.exit(0);
+async function shutdown(signal) {
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    if (!config.isProduction) {
+      console.error("Prisma disconnect error", error);
+    }
+  }
+  process.exit(signal === "SIGTERM" ? 0 : 0);
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+const PORT = process.env.PORT || config.port;
+
+app.listen(PORT, () => {
+  if (!config.isProduction) {
+    console.log(`API running on http://localhost:${PORT}`);
+  } else {
+    console.log(`API listening on port ${PORT} (${config.nodeEnv})`);
+  }
 });
 
-process.on("SIGTERM", async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
-
-app.listen(config.port, () => {
-  console.log(`API running on http://localhost:${config.port}`);
-});
+module.exports = app;
