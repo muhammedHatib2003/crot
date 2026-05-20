@@ -1,0 +1,7 @@
+node_modules
+dist
+out
+build/icon-cache
+.env
+.env.local
+*.log

@@ -1,0 +1,51 @@
+appId: com.restaurant.pos.desktop
+productName: Restaurant POS Desktop
+copyright: Copyright © Restaurant POS
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - main.js
+  - preload.js
+  - package.json
+  - "!**/*.map"
+  - "!**/*.md"
+  - "!node_modules/**/{CHANGELOG.md,README.md,readme.md,changelog.md}"
+  - "!node_modules/**/test/**"
+  - "!node_modules/**/tests/**"
+
+extraResources:
+  - from: "../web/dist"
+    to: web-dist
+    filter:
+      - "**/*"
+
+asar: true
+compression: normal
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Restaurant POS
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.business
+
+linux:
+  target:
+    - AppImage
+  category: Office
