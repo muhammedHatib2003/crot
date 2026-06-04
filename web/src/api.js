@@ -3,14 +3,20 @@ function resolveApiBaseUrl() {
   const rawRoot = import.meta.env.VITE_API_URL;
   const fallback = "http://localhost:4000";
 
-  const candidate = (rawBase || rawRoot || fallback).trim();
-  const withoutTrailingSlash = candidate.replace(/\/+$/, "");
+  let candidate = (rawBase || rawRoot || fallback).trim().replace(/\/+$/, "");
 
-  if (/\/api$/i.test(withoutTrailingSlash)) {
-    return withoutTrailingSlash;
+  // Common misconfiguration on Vercel: .../api/public or .../public
+  if (/\/api\/public$/i.test(candidate)) {
+    candidate = candidate.replace(/\/public$/i, "");
+  } else if (/\/public$/i.test(candidate) && !/\/api$/i.test(candidate)) {
+    candidate = candidate.replace(/\/public$/i, "");
   }
 
-  return `${withoutTrailingSlash}/api`;
+  if (/\/api$/i.test(candidate)) {
+    return candidate;
+  }
+
+  return `${candidate}/api`;
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
@@ -298,4 +304,33 @@ export async function getSubscriptionPaymentStatus(token) {
     token
   });
   return response.data || {};
+}
+
+export async function getAdminPlans(token) {
+  const response = await apiRequest("/admin/plans", { token });
+  return response.plans || [];
+}
+
+export async function createAdminPlan(planPayload, token) {
+  return apiRequest("/admin/plans", {
+    method: "POST",
+    token,
+    body: planPayload
+  });
+}
+
+export async function updateAdminPlan(planId, planPayload, token) {
+  return apiRequest(`/admin/plans/${encodeURIComponent(planId)}`, {
+    method: "PATCH",
+    token,
+    body: planPayload
+  });
+}
+
+export async function setAdminPlanStatus(planId, isActive, token) {
+  return apiRequest(`/admin/plans/${encodeURIComponent(planId)}/status`, {
+    method: "PATCH",
+    token,
+    body: { isActive }
+  });
 }

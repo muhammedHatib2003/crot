@@ -1,45 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { apiRequest } from "../api";
+import { apiRequest, getApiBaseUrl } from "../api";
+import PickupOrderStatusPanel, { getPickupOrderStorageKey } from "../components/pickup/PickupOrderStatusPanel";
 import RemoteImage from "../components/RemoteImage";
+import RestaurantLogo from "../components/RestaurantLogo";
+import { formatTryCurrency } from "../utils/currency";
+import {
+  apiRequestWithPathFallback,
+  getPickupMenuPathCandidates,
+  getPickupOrderPathCandidates,
+  getPickupOrdersPathCandidates
+} from "../utils/pickupApi";
 
-const ORDER_STATUS_STYLES = {
-  PENDING: "bg-amber-100 text-amber-900",
-  PREPARING: "bg-sky-100 text-sky-900",
-  READY: "bg-emerald-100 text-emerald-900",
-  PAID: "bg-slate-200 text-slate-800",
-  CANCELLED: "bg-rose-100 text-rose-900"
-};
-
-function formatPrice(price) {
-  return `$${Number(price || 0).toFixed(2)}`;
-}
-
-function formatDate(dateValue) {
-  if (!dateValue) {
-    return "As soon as possible";
-  }
-
-  return new Date(dateValue).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function getStatusClass(status) {
-  return ORDER_STATUS_STYLES[status] || "bg-slate-100 text-slate-800";
-}
+const TERMINAL_STATUSES = new Set(["PAID", "COMPLETED", "CANCELLED", "REJECTED"]);
 
 function getAvailabilityClasses(item) {
-  return item.isOrderable
-    ? "bg-emerald-100 text-emerald-900"
-    : "bg-slate-200 text-slate-700";
+  return item.isOrderable ? "bg-emerald-100 text-emerald-900" : "bg-slate-200 text-slate-700";
 }
 
 export default function PickupOrderPage() {
   const { tenantSlug } = useParams();
+  const menuPathCandidates = useMemo(() => getPickupMenuPathCandidates(tenantSlug), [tenantSlug]);
+  const ordersPathCandidates = useMemo(() => getPickupOrdersPathCandidates(tenantSlug), [tenantSlug]);
+  const storageKey = getPickupOrderStorageKey(tenantSlug);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [payload, setPayload] = useState(null);
@@ -51,9 +34,10 @@ export default function PickupOrderPage() {
   const [submitError, setSubmitError] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
   const [activeOrder, setActiveOrder] = useState(null);
+  const [orderRefreshing, setOrderRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState("");
 
-  const menuItems = payload?.items || [];
+  const menuItems = payload?.items || payload?.products || [];
   const cartItems = useMemo(
     () =>
       menuItems
@@ -61,7 +45,7 @@ export default function PickupOrderPage() {
         .map((item) => ({
           ...item,
           quantity: Number(cart[item.id] || 0),
-          lineTotal: item.price * Number(cart[item.id] || 0)
+          lineTotal: Number(item.price || 0) * Number(cart[item.id] || 0)
         })),
     [cart, menuItems]
   );
@@ -87,6 +71,31 @@ export default function PickupOrderPage() {
 
     return groupedItems.find(([category]) => category === activeCategory)?.[1] || [];
   }, [activeCategory, groupedItems]);
+
+  function readStoredOrderId() {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    return window.localStorage.getItem(storageKey) || "";
+  }
+
+  function persistOrderId(publicId) {
+    if (typeof window === "undefined" || !publicId) {
+      return;
+    }
+
+    window.localStorage.setItem(storageKey, publicId);
+  }
+
+  function clearStoredOrder() {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(storageKey);
+    }
+    setActiveOrder(null);
+    setSubmitMessage("");
+    setSubmitError("");
+  }
 
   useEffect(() => {
     if (categoryNames.length === 0) {
@@ -139,8 +148,24 @@ export default function PickupOrderPage() {
     setError("");
 
     try {
-      const result = await apiRequest(`/public/tenants/${tenantSlug}/menu`);
+      const storedOrderId = readStoredOrderId();
+      const query = storedOrderId ? `?orderId=${encodeURIComponent(storedOrderId)}` : "";
+      const result = await apiRequestWithPathFallback(
+        menuPathCandidates.map((path) => `${path}${query}`),
+        {},
+        apiRequest
+      );
       setPayload(result);
+
+      if (result.activeOrder) {
+        setActiveOrder(result.activeOrder);
+        if (result.activeOrder.customerName) {
+          setCustomerName(result.activeOrder.customerName);
+        }
+        if (result.activeOrder.customerPhone) {
+          setCustomerPhone(result.activeOrder.customerPhone);
+        }
+      }
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -148,12 +173,27 @@ export default function PickupOrderPage() {
     }
   }
 
-  async function loadOrder(orderId) {
+  async function loadOrder(orderId, { silent = false } = {}) {
+    if (!orderId) {
+      return;
+    }
+
+    if (!silent) {
+      setOrderRefreshing(true);
+    }
+
     try {
-      const result = await apiRequest(`/public/tenants/${tenantSlug}/orders/${orderId}`);
+      const result = await apiRequestWithPathFallback(getPickupOrderPathCandidates(tenantSlug, orderId), {}, apiRequest);
       setActiveOrder(result.order);
+      persistOrderId(result.order?.publicId || orderId);
     } catch (requestError) {
-      setSubmitError(requestError.message);
+      if (!silent) {
+        setSubmitError(requestError.message);
+      }
+    } finally {
+      if (!silent) {
+        setOrderRefreshing(false);
+      }
     }
   }
 
@@ -162,16 +202,16 @@ export default function PickupOrderPage() {
   }, [tenantSlug]);
 
   useEffect(() => {
-    if (!activeOrder?.publicId) {
+    if (!activeOrder?.publicId || TERMINAL_STATUSES.has(activeOrder.status)) {
       return undefined;
     }
 
     const intervalId = setInterval(() => {
-      loadOrder(activeOrder.publicId);
-    }, 15000);
+      loadOrder(activeOrder.publicId, { silent: true });
+    }, 10000);
 
     return () => clearInterval(intervalId);
-  }, [activeOrder?.publicId, tenantSlug]);
+  }, [activeOrder?.publicId, activeOrder?.status, tenantSlug]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -191,12 +231,12 @@ export default function PickupOrderPage() {
     setSubmitting(true);
 
     try {
-      const result = await apiRequest(`/public/tenants/${tenantSlug}/orders`, {
+      const result = await apiRequestWithPathFallback(ordersPathCandidates, {
         method: "POST",
         body: {
-          customerName,
-          customerPhone,
-          notes,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim(),
+          notes: notes.trim(),
           items: cartItems.map((item) => ({
             menuItemId: item.id,
             quantity: item.quantity
@@ -205,7 +245,8 @@ export default function PickupOrderPage() {
       });
 
       setActiveOrder(result.order);
-      setSubmitMessage(result.message);
+      persistOrderId(result.order?.publicId);
+      setSubmitMessage(result.message || "Pickup order placed successfully.");
       setCart({});
       setNotes("");
       await loadMenu();
@@ -221,96 +262,76 @@ export default function PickupOrderPage() {
   }
 
   if (error) {
-    return <div className="p-8 text-center text-red-700">{error}</div>;
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-800">
+          <p className="text-lg font-semibold">Pickup unavailable</p>
+          <p className="mt-2 text-sm">{error}</p>
+          <p className="mt-3 text-xs text-rose-700/90">
+            Slug: <span className="font-mono font-semibold">/{tenantSlug}/menu</span>
+            <br />
+            API: {getApiBaseUrl()}
+            {menuPathCandidates[0]}
+          </p>
+          <p className="mt-3 text-xs text-rose-600">
+            Owner panel → Settings: pickup slug, active plan, Public dine-in ordering and Pickup ordering enabled.
+          </p>
+        </div>
+      </div>
+    );
   }
+
+  const restaurant = payload?.restaurant;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <header className="mb-6 rounded-3xl bg-white p-6 shadow-md">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">Online Pickup</p>
-            <h1 className="mt-2 text-3xl font-bold text-brand-900">{payload?.restaurant?.name}</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Order online and collect it at the restaurant when it is ready.
-            </p>
+          <div className="flex items-start gap-4">
+            <RestaurantLogo className="h-16 w-16 shrink-0 text-lg" name={restaurant?.name} src={restaurant?.logoUrl} />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">Gel-Al Menü</p>
+              <h1 className="mt-2 text-3xl font-bold text-brand-900">{restaurant?.name}</h1>
+              <p className="mt-1 text-sm text-slate-600">Sipariş verin, hazır olunca restorandan teslim alın.</p>
+            </div>
           </div>
           <div className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-900">
             <p className="font-semibold">Pickup</p>
-            <p>Tenant: /{payload?.restaurant?.slug}</p>
+            <p className="text-brand-700">/{restaurant?.slug}</p>
           </div>
         </div>
       </header>
 
       {submitMessage ? (
-        <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-          {submitMessage}
-        </div>
+        <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{submitMessage}</div>
       ) : null}
       {submitError ? (
-        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {submitError}
-        </div>
+        <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{submitError}</div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section className="space-y-6">
           {activeOrder ? (
-            <section className="rounded-3xl bg-white p-5 shadow-md">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">Latest pickup order</p>
-                  <h2 className="text-xl font-bold text-slate-900">{activeOrder.orderCode}</h2>
-                </div>
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${getStatusClass(activeOrder.status)}`}>
-                  {activeOrder.status}
-                </span>
-              </div>
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Customer</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{activeOrder.customerName}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Phone</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{activeOrder.customerPhone}</p>
-                </div>
-                <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Pickup time</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{formatDate(activeOrder.pickupTime)}</p>
-                </div>
-              </div>
-              <div className="mt-4 rounded-2xl bg-slate-50 p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
-                <p className="mt-1 text-sm font-medium text-slate-900">{formatPrice(activeOrder.total)}</p>
-              </div>
-              <div className="mt-4 space-y-2">
-                {activeOrder.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between rounded-2xl border border-slate-200 p-3">
-                    <div>
-                      <p className="font-medium text-slate-900">{item.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {item.quantity} x {formatPrice(item.price)}
-                      </p>
-                    </div>
-                    <p className="font-semibold text-brand-900">{formatPrice(item.price * item.quantity)}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <div className="xl:hidden">
+              <PickupOrderStatusPanel
+                order={activeOrder}
+                refreshing={orderRefreshing}
+                onNewOrder={clearStoredOrder}
+                onRefresh={() => loadOrder(activeOrder.publicId)}
+              />
+            </div>
           ) : null}
 
           {groupedItems.length > 0 ? (
             <section className="rounded-3xl bg-white p-5 shadow-md">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Browse Menu</p>
-                  <h2 className="mt-2 text-2xl font-bold text-slate-900">Choose your items</h2>
-                  <p className="mt-1 text-sm text-slate-500">Pickup orders are prepared fresh and shown live to the kitchen.</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Menü</p>
+                  <h2 className="mt-2 text-2xl font-bold text-slate-900">Ürün seçin</h2>
                 </div>
                 <div className="rounded-2xl bg-brand-50 px-4 py-3 text-right">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">Selected</p>
-                  <p className="mt-1 text-lg font-bold text-brand-900">{activeCategory || "-"}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">Kategori</p>
+                  <p className="mt-1 text-lg font-bold text-brand-900">{activeCategory || "—"}</p>
                 </div>
               </div>
 
@@ -330,7 +351,7 @@ export default function PickupOrderPage() {
                       onClick={() => setActiveCategory(category)}
                     >
                       <p className="text-sm font-semibold">{category}</p>
-                      <p className={`text-xs ${isActive ? "text-white/80" : "text-slate-500"}`}>{items.length} items</p>
+                      <p className={`text-xs ${isActive ? "text-white/80" : "text-slate-500"}`}>{items.length} ürün</p>
                     </button>
                   );
                 })}
@@ -359,12 +380,14 @@ export default function PickupOrderPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <h3 className="text-lg font-semibold text-slate-900">{item.name}</h3>
-                            <p className="mt-2 text-sm text-slate-600">{item.description || "Freshly prepared pickup item."}</p>
-                            <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${getAvailabilityClasses(item)}`}>
+                            <p className="mt-2 text-sm text-slate-600">{item.description || "Taze hazırlanır."}</p>
+                            <span
+                              className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${getAvailabilityClasses(item)}`}
+                            >
                               {item.availabilityText}
                             </span>
                           </div>
-                          <p className="text-base font-bold text-brand-900">{formatPrice(item.price)}</p>
+                          <p className="text-base font-bold text-brand-900">{formatTryCurrency(item.price)}</p>
                         </div>
 
                         <div className="mt-4 flex items-center justify-between gap-3">
@@ -403,23 +426,32 @@ export default function PickupOrderPage() {
                 })}
               </div>
             </section>
-          ) : null}
-
-          {groupedItems.length === 0 ? (
+          ) : (
             <section className="rounded-3xl bg-white p-5 shadow-md">
               <p className="text-sm text-slate-500">No available menu items.</p>
             </section>
-          ) : null}
+          )}
         </section>
 
-        <aside>
-          <div className="rounded-3xl bg-white p-5 shadow-md xl:sticky xl:top-6">
+        <aside className="space-y-5 xl:sticky xl:top-6 xl:self-start">
+          {activeOrder ? (
+            <div className="hidden xl:block">
+              <PickupOrderStatusPanel
+                order={activeOrder}
+                refreshing={orderRefreshing}
+                onNewOrder={clearStoredOrder}
+                onRefresh={() => loadOrder(activeOrder.publicId)}
+              />
+            </div>
+          ) : null}
+
+          <div className="rounded-3xl bg-white p-5 shadow-md">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Your Cart</p>
-                <h2 className="text-xl font-bold text-slate-900">{cartItems.length} items selected</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Sepet</p>
+                <h2 className="text-xl font-bold text-slate-900">{cartItems.length} ürün</h2>
               </div>
-              <p className="text-lg font-bold text-brand-900">{formatPrice(cartTotal)}</p>
+              <p className="text-lg font-bold text-brand-900">{formatTryCurrency(cartTotal)}</p>
             </div>
 
             <div className="mt-4 space-y-3">
@@ -429,47 +461,47 @@ export default function PickupOrderPage() {
                     <div>
                       <p className="font-medium text-slate-900">{item.name}</p>
                       <p className="text-xs text-slate-500">
-                        {item.quantity} x {formatPrice(item.price)}
+                        {item.quantity} × {formatTryCurrency(item.price)}
                       </p>
                     </div>
-                    <p className="font-semibold text-slate-900">{formatPrice(item.lineTotal)}</p>
+                    <p className="font-semibold text-slate-900">{formatTryCurrency(item.lineTotal)}</p>
                   </div>
                 </div>
               ))}
 
               {cartItems.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-                  Your cart is empty. Add products from the menu to place a pickup order.
+                  Sepet boş. Menüden ürün ekleyerek sipariş verin.
                 </div>
               ) : null}
             </div>
 
             <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Name</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Ad Soyad</label>
                 <input
                   required
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
-                  placeholder="Your full name"
+                  placeholder="Adınız"
                   value={customerName}
                   onChange={(event) => setCustomerName(event.target.value)}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Telefon</label>
                 <input
                   required
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
-                  placeholder="+1 555 123 4567"
+                  placeholder="05xx xxx xx xx"
                   value={customerPhone}
                   onChange={(event) => setCustomerPhone(event.target.value)}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Order note</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Sipariş notu</label>
                 <textarea
                   className="min-h-24 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
-                  placeholder="Allergy, no onion, extra spicy..."
+                  placeholder="Alerji, acısız..."
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                 />
@@ -479,7 +511,7 @@ export default function PickupOrderPage() {
                 type="submit"
                 className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white hover:bg-brand-900 disabled:opacity-60"
               >
-                {submitting ? "Sending order..." : `Place pickup order for ${formatPrice(cartTotal)}`}
+                {submitting ? "Gönderiliyor..." : `Sipariş ver — ${formatTryCurrency(cartTotal)}`}
               </button>
             </form>
           </div>

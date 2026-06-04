@@ -2,14 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiRequest, getApiOrigin } from "../api";
 import { AppShell, MessageBanner, PageHeader, SectionCard, buttonStyles } from "../components/app/AppShell";
+import PlanManagement from "../components/admin/PlanManagement";
 
 export default function AdminPage({ session, onLogout }) {
   const { t } = useTranslation();
   const [users, setUsers] = useState([]);
-  const [plans, setPlans] = useState([]);
-  const [planDrafts, setPlanDrafts] = useState({});
   const [loading, setLoading] = useState(true);
-  const [savingPlanId, setSavingPlanId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [courierAccounts, setCourierAccounts] = useState([]);
@@ -17,51 +15,6 @@ export default function AdminPage({ session, onLogout }) {
   const [courierBusyId, setCourierBusyId] = useState("");
   const [rejectDraft, setRejectDraft] = useState({});
   const [courierLoading, setCourierLoading] = useState(false);
-
-  function updatePlanDraft(planId, value) {
-    setPlanDrafts((previous) => ({
-      ...previous,
-      [planId]: value
-    }));
-  }
-
-  async function savePlanPrice(plan) {
-    const rawPrice = planDrafts[plan.id];
-    const parsedPrice = Number(rawPrice);
-
-    if (!Number.isInteger(parsedPrice) || parsedPrice <= 0) {
-      setMessage("");
-      setError(t("common.errors.planPriceWholeNumber"));
-      return;
-    }
-
-    setSavingPlanId(plan.id);
-    setMessage("");
-    setError("");
-
-    try {
-      const result = await apiRequest(`/admin/plans/${plan.id}`, {
-        method: "PATCH",
-        token: session.token,
-        body: { monthlyPrice: parsedPrice }
-      });
-
-      setPlans((previous) =>
-        previous
-          .map((existingPlan) => (existingPlan.id === plan.id ? result.plan : existingPlan))
-          .sort((left, right) => left.monthlyPrice - right.monthlyPrice)
-      );
-      setPlanDrafts((previous) => ({
-        ...previous,
-        [plan.id]: String(result.plan.monthlyPrice)
-      }));
-      setMessage(t("admin.planPricing.updated", { planName: result.plan.displayName }));
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setSavingPlanId("");
-    }
-  }
 
   const loadCouriers = useCallback(async () => {
     const courierPath =
@@ -75,20 +28,8 @@ export default function AdminPage({ session, onLogout }) {
       setLoading(true);
       setError("");
       try {
-        const [usersResult, plansResult] = await Promise.all([
-          apiRequest("/admin/users", { token: session.token }),
-          apiRequest("/admin/plans", { token: session.token })
-        ]);
-
-        const nextPlans = plansResult.plans || [];
+        const usersResult = await apiRequest("/admin/users", { token: session.token });
         setUsers(usersResult.users || []);
-        setPlans(nextPlans);
-        setPlanDrafts(
-          nextPlans.reduce((accumulator, plan) => {
-            accumulator[plan.id] = String(plan.monthlyPrice);
-            return accumulator;
-          }, {})
-        );
       } catch (requestError) {
         setError(requestError.message);
       } finally {
@@ -306,67 +247,7 @@ export default function AdminPage({ session, onLogout }) {
           ) : null}
         </SectionCard>
 
-        <SectionCard title={t("admin.planPricing.title")} description={t("admin.planPricing.description")}>
-          {loading ? <p className="text-sm text-slate-600">{t("common.loading.plans")}</p> : null}
-
-          {!loading ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead>
-                  <tr className="text-left text-slate-600">
-                    <th className="py-2 pr-4">{t("admin.planPricing.code")}</th>
-                    <th className="py-2 pr-4">{t("admin.planPricing.name")}</th>
-                    <th className="py-2 pr-4">{t("admin.planPricing.descriptionHeader")}</th>
-                    <th className="py-2 pr-4">{t("admin.planPricing.monthlyPrice")}</th>
-                    <th className="py-2 pr-4">{t("admin.planPricing.action")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {plans.map((plan) => {
-                    const isSaving = savingPlanId === plan.id;
-                    const draftValue = planDrafts[plan.id] ?? String(plan.monthlyPrice);
-                    const hasChanges = Number(draftValue) !== plan.monthlyPrice;
-
-                    return (
-                      <tr key={plan.id}>
-                        <td className="py-2 pr-4 font-medium text-slate-900">{plan.code}</td>
-                        <td className="py-2 pr-4 text-slate-700">{plan.displayName}</td>
-                        <td className="py-2 pr-4 text-slate-700">{plan.description}</td>
-                        <td className="py-2 pr-4">
-                          <input
-                            min="1"
-                            step="1"
-                            type="number"
-                            className="w-24 rounded-md border border-slate-300 px-2 py-1 outline-none focus:border-brand-500"
-                            value={draftValue}
-                            onChange={(event) => updatePlanDraft(plan.id, event.target.value)}
-                          />
-                        </td>
-                        <td className="py-2 pr-4">
-                          <button
-                            type="button"
-                            disabled={isSaving || !hasChanges}
-                            className="rounded-md bg-brand-700 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-900 disabled:opacity-60"
-                            onClick={() => savePlanPrice(plan)}
-                          >
-                            {isSaving ? t("admin.planPricing.saving") : t("admin.planPricing.save")}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {plans.length === 0 ? (
-                    <tr>
-                      <td className="py-4 text-slate-500" colSpan={5}>
-                        {t("admin.planPricing.empty")}
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </SectionCard>
+        <PlanManagement token={session.token} />
 
         <SectionCard title={t("admin.users.title")} description={t("admin.users.description")}>
           {loading ? <p className="text-sm text-slate-600">{t("common.loading.users")}</p> : null}

@@ -18,7 +18,8 @@ function mapPublicRestaurant(restaurant) {
 
 function validatePublicRestaurant(restaurant, options = {}) {
   if (!restaurant) {
-    return { status: 404, message: "Restaurant not found." };
+    const slugHint = options.slug ? ` (slug: ${options.slug})` : "";
+    return { status: 404, message: `Restaurant not found${slugHint}.` };
   }
 
   if (!restaurant.subscription || restaurant.subscription.status !== "ACTIVE") {
@@ -63,21 +64,23 @@ async function getTableContext(tableId) {
 }
 
 async function getRestaurantContextBySlug(tenantSlug, options = {}) {
+  const slug = String(tenantSlug || "").trim().toLowerCase();
+
   const restaurant = await prisma.restaurant.findFirst({
     where: {
-      slug: String(tenantSlug || "").trim().toLowerCase()
+      slug
     },
     include: {
       subscription: true
     }
   });
 
-  const error = validatePublicRestaurant(restaurant, options);
+  const error = validatePublicRestaurant(restaurant, { ...options, slug });
   if (error) {
     return { error };
   }
 
-  return { restaurant };
+  return { restaurant, slug };
 }
 
 function handleServiceError(res, error, next) {
@@ -154,19 +157,35 @@ router.post("/tables/:tableId/orders", async (req, res, next) => {
   }
 });
 
-router.get("/tenants/:tenantSlug/menu", async (req, res, next) => {
+async function handlePickupMenu(req, res, next) {
   try {
-    const { restaurant, error } = await getRestaurantContextBySlug(req.params.tenantSlug, {
+    const slug = req.params.tenantSlug || req.params.slug;
+    const { restaurant, error } = await getRestaurantContextBySlug(slug, {
       requirePickupEnabled: true
     });
 
     if (error) {
-      return res.status(error.status).json({ message: error.message });
+      return res.status(error.status).json({ message: error.message, slug });
     }
 
     const products = await listMenuItems(prisma, restaurant.id, {
       includeUnavailable: true
     });
+
+    const trackOrderId = String(req.query.orderId || req.query.trackOrder || "").trim();
+    let activeOrder = null;
+
+    if (trackOrderId) {
+      const trackedOrder = await prisma.order.findFirst({
+        where: {
+          publicId: trackOrderId,
+          restaurantId: restaurant.id,
+          orderType: "PICKUP"
+        },
+        include: orderInclude
+      });
+      activeOrder = mapOrder(trackedOrder);
+    }
 
     return res.json({
       restaurant: mapPublicRestaurant(restaurant),
@@ -174,21 +193,23 @@ router.get("/tenants/:tenantSlug/menu", async (req, res, next) => {
         type: "PICKUP"
       },
       items: products,
-      products
+      products,
+      activeOrder
     });
   } catch (error) {
     return handleServiceError(res, error, next);
   }
-});
+}
 
-router.post("/tenants/:tenantSlug/orders", async (req, res, next) => {
+async function handlePickupCreateOrder(req, res, next) {
   try {
-    const { restaurant, error } = await getRestaurantContextBySlug(req.params.tenantSlug, {
+    const slug = req.params.tenantSlug || req.params.slug;
+    const { restaurant, error } = await getRestaurantContextBySlug(slug, {
       requirePickupEnabled: true
     });
 
     if (error) {
-      return res.status(error.status).json({ message: error.message });
+      return res.status(error.status).json({ message: error.message, slug });
     }
 
     const order = await createPickupOrder({
@@ -207,16 +228,17 @@ router.post("/tenants/:tenantSlug/orders", async (req, res, next) => {
   } catch (error) {
     return handleServiceError(res, error, next);
   }
-});
+}
 
-router.get("/tenants/:tenantSlug/orders/:orderId", async (req, res, next) => {
+async function handlePickupGetOrder(req, res, next) {
   try {
-    const { restaurant, error } = await getRestaurantContextBySlug(req.params.tenantSlug, {
+    const slug = req.params.tenantSlug || req.params.slug;
+    const { restaurant, error } = await getRestaurantContextBySlug(slug, {
       requirePickupEnabled: true
     });
 
     if (error) {
-      return res.status(error.status).json({ message: error.message });
+      return res.status(error.status).json({ message: error.message, slug });
     }
 
     const order = await prisma.order.findFirst({
@@ -239,7 +261,16 @@ router.get("/tenants/:tenantSlug/orders/:orderId", async (req, res, next) => {
   } catch (error) {
     return handleServiceError(res, error, next);
   }
-});
+}
+
+router.get("/tenants/:tenantSlug/menu", handlePickupMenu);
+router.get("/restaurants/:slug/menu", handlePickupMenu);
+
+router.post("/tenants/:tenantSlug/orders", handlePickupCreateOrder);
+router.post("/restaurants/:slug/orders", handlePickupCreateOrder);
+
+router.get("/tenants/:tenantSlug/orders/:orderId", handlePickupGetOrder);
+router.get("/restaurants/:slug/orders/:orderId", handlePickupGetOrder);
 
 router.get("/orders/:orderId", async (req, res, next) => {
   try {

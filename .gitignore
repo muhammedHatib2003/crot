@@ -1,6 +1,7 @@
 node_modules
 api/node_modules
 web/node_modules
+desktop/node_modules
 
 dist
 build
@@ -8,6 +9,8 @@ web/dist
 web/build
 api/dist
 api/build
+desktop/dist
+desktop/out
 
 .env
 .env.local

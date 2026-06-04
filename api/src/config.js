@@ -17,6 +17,25 @@ function parseOriginList(value) {
     .filter(Boolean);
 }
 
+function isLocalOrigin(value) {
+  return /localhost|127\.0\.0\.1/i.test(String(value || ""));
+}
+
+function resolvePublicAppUrl() {
+  const candidates = [
+    normalizeOrigin(process.env.PUBLIC_APP_URL),
+    normalizeOrigin(process.env.CLIENT_URL || process.env.CLIENT_ORIGIN),
+    ...parseOriginList(process.env.CLIENT_ORIGINS)
+  ].filter(Boolean);
+
+  const publicCandidate = candidates.find((entry) => !isLocalOrigin(entry));
+  if (publicCandidate) {
+    return publicCandidate;
+  }
+
+  return candidates[0] || "http://localhost:5173";
+}
+
 const nodeEnv = process.env.NODE_ENV || "development";
 const isProduction = nodeEnv === "production";
 
@@ -30,6 +49,7 @@ module.exports = {
   superAdminEmail: process.env.SUPER_ADMIN_EMAIL || "admin@crot.local",
   superAdminPassword: process.env.SUPER_ADMIN_PASSWORD || "admin123",
   clientUrl: normalizeOrigin(process.env.CLIENT_URL || process.env.CLIENT_ORIGIN) || "http://localhost:5173",
+  publicAppUrl: resolvePublicAppUrl(),
   extraClientOrigins: parseOriginList(process.env.CLIENT_ORIGINS),
   apiUrl: process.env.API_URL || "http://localhost:4000",
   iyzico: {

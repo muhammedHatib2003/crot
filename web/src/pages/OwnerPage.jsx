@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiRequest, startSubscriptionCheckout } from "../api";
+import OwnerPlanCheckout from "../components/owner/OwnerPlanCheckout";
+import OwnerPlanGateModal from "../components/owner/OwnerPlanGateModal";
+import TableCreatePanel from "../components/owner/TableCreatePanel";
+import TableQrCard from "../components/owner/TableQrCard";
+import { createTableQrDataUrl } from "../components/owner/TableQrCode";
+import TableQrPrint from "../components/print/TableQrPrint";
+import { triggerPrint } from "../components/print/printUtils";
 import RestaurantLogo from "../components/RestaurantLogo";
+import {
+  getPublicAppOrigin,
+  getPublicPath,
+  getTableOrderLink,
+  isLocalOnlyOrderOrigin,
+  setPublicAppOrigin
+} from "../utils/tableOrderLinks";
 import {
   AppShell,
   EmptyState,
@@ -43,29 +57,12 @@ function formatPrice(price) {
   return `$${Number(price || 0).toFixed(2)}`;
 }
 
-function getOrderLink(tableId) {
-  if (typeof window === "undefined") {
-    return `/t/${tableId}`;
-  }
-
-  return `${window.location.origin}/t/${tableId}`;
-}
-
 function getPickupLink(restaurantSlug) {
   if (!restaurantSlug) {
     return "";
   }
 
-  if (typeof window === "undefined") {
-    return `/${restaurantSlug}/menu`;
-  }
-
-  return `${window.location.origin}/${restaurantSlug}/menu`;
-}
-
-function getTableQrImageUrl(tableId) {
-  const orderLink = getOrderLink(tableId);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(orderLink)}`;
+  return getPublicPath(`/${restaurantSlug}/menu`);
 }
 
 function getPlanLabel(subscription) {
@@ -87,19 +84,6 @@ function getTableTone(status) {
     return "info";
   }
   return "neutral";
-}
-
-function getTablePreviewClasses(status) {
-  if (status === "AVAILABLE") {
-    return "border-emerald-300 bg-emerald-50 text-emerald-950";
-  }
-  if (status === "OCCUPIED") {
-    return "border-rose-300 bg-rose-50 text-rose-950";
-  }
-  if (status === "RESERVED") {
-    return "border-sky-300 bg-sky-50 text-sky-950";
-  }
-  return "border-slate-300 bg-slate-100 text-slate-900";
 }
 
 function formatQuantity(value) {
@@ -159,6 +143,8 @@ export default function OwnerPage({ session, onLogout }) {
   const [recipeExists, setRecipeExists] = useState(false);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [ingredientStockInputs, setIngredientStockInputs] = useState({});
+  const [printTableQr, setPrintTableQr] = useState(null);
+  const [printingTableId, setPrintingTableId] = useState("");
   const [settingsForm, setSettingsForm] = useState({
     logoUrl: "",
     slug: "",
@@ -196,14 +182,11 @@ export default function OwnerPage({ session, onLogout }) {
   const pickupMenuLink = getPickupLink(dashboard?.restaurant?.slug);
   const requiresPlanSelection = Boolean(dashboard?.requiresPlanSelection);
   const canUseBusinessTools = !requiresPlanSelection;
+  const showPlanGate = requiresPlanSelection && !loading;
   const restaurantName = dashboard?.restaurant?.name || "Restaurant";
   const selectedRecipeItem = useMemo(
     () => menuItems.find((item) => item.id === selectedRecipeItemId) || null,
     [menuItems, selectedRecipeItemId]
-  );
-  const selectedPlan = useMemo(
-    () => plans.find((plan) => plan.id === selectedPlanId) || null,
-    [plans, selectedPlanId]
   );
   const metrics = useMemo(
     () => [
@@ -300,8 +283,7 @@ export default function OwnerPage({ session, onLogout }) {
     }
 
     setMessage("");
-    setError("Select a plan in Settings before using staff, table, or menu tools.");
-    setActiveTab("settings");
+    setError("Önce abonelik planınızı seçip ödemeyi tamamlayın.");
     return false;
   }
 
@@ -314,6 +296,9 @@ export default function OwnerPage({ session, onLogout }) {
       const nextPlans = plansResult.plans || [];
 
       setDashboard(dashboardResult);
+      if (dashboardResult.publicAppUrl) {
+        setPublicAppOrigin(dashboardResult.publicAppUrl);
+      }
       setPlans(nextPlans);
       setSelectedPlanId((previous) => dashboardResult.subscription?.plan?.id || previous || nextPlans[0]?.id || "");
       setSettingsForm({
@@ -358,9 +343,37 @@ export default function OwnerPage({ session, onLogout }) {
   }, []);
 
   useEffect(() => {
-    if (requiresPlanSelection) {
-      setActiveTab("settings");
+    if (!printTableQr) {
+      return undefined;
     }
+
+    triggerPrint();
+
+    function handleAfterPrint() {
+      setPrintTableQr(null);
+    }
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, [printTableQr]);
+
+  useEffect(() => {
+    if (!requiresPlanSelection) {
+      return undefined;
+    }
+
+    function handleVisibilityRefresh() {
+      if (document.visibilityState === "visible") {
+        loadData();
+      }
+    }
+
+    window.addEventListener("focus", loadData);
+    document.addEventListener("visibilitychange", handleVisibilityRefresh);
+    return () => {
+      window.removeEventListener("focus", loadData);
+      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
+    };
   }, [requiresPlanSelection]);
 
   useEffect(() => {
@@ -721,6 +734,31 @@ export default function OwnerPage({ session, onLogout }) {
       .catch(() => setError("Could not copy to clipboard."));
   }
 
+  async function handlePrintTableQr(table) {
+    if (!table?.id) {
+      return;
+    }
+
+    setPrintingTableId(table.id);
+    setError("");
+    setMessage("");
+
+    try {
+      const orderLink = getTableOrderLink(table.id);
+      const qrDataUrl = await createTableQrDataUrl(table.id, 320);
+      setPrintTableQr({
+        tableName: table.name,
+        seats: table.seats,
+        orderLink,
+        qrDataUrl
+      });
+    } catch (requestError) {
+      setError(requestError.message || "QR yazdırılamadı.");
+    } finally {
+      setPrintingTableId("");
+    }
+  }
+
   function renderOverview() {
     return (
       <div className="space-y-5">
@@ -762,12 +800,12 @@ export default function OwnerPage({ session, onLogout }) {
                 <p className="text-sm font-medium text-slate-900">Example table QR link</p>
                 {tables[0] ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <a className="truncate text-sm text-brand-700 hover:text-brand-900" href={getOrderLink(tables[0].id)} rel="noreferrer" target="_blank">
-                      {getOrderLink(tables[0].id)}
+                    <a className="truncate text-sm text-brand-700 hover:text-brand-900" href={getTableOrderLink(tables[0].id)} rel="noreferrer" target="_blank">
+                      {getTableOrderLink(tables[0].id)}
                     </a>
                     <button
                       className={buttonStyles.secondary}
-                      onClick={() => copyToClipboard(getOrderLink(tables[0].id), `${tables[0].name} order link`)}
+                      onClick={() => copyToClipboard(getTableOrderLink(tables[0].id), `${tables[0].name} order link`)}
                       type="button"
                     >
                       Copy link
@@ -844,134 +882,47 @@ export default function OwnerPage({ session, onLogout }) {
   }
 
   function renderTables() {
+    const publicOrderBase = getPublicAppOrigin();
+
     return (
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
         <SectionCard title="Create table" description="Name it, set the seats, and the QR link becomes ready as soon as you save.">
-          <div className="rounded-[28px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.12),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.12),_transparent_42%),white] p-4">
-            <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-4">
-              <div className={`aspect-square rounded-[28px] border p-4 shadow-sm ${getTablePreviewClasses(tableForm.status)}`}>
-                <div className="flex h-full flex-col justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.16em] opacity-70">Preview</p>
-                    <p className="mt-2 text-2xl font-semibold">{tableForm.name || "T12"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.14em] opacity-70">Seats</p>
-                    <p className="mt-1 text-lg font-semibold">{tableForm.seats}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status on create</p>
-                  <div className="mt-2">
-                    <StatusPill tone={getTableTone(tableForm.status)}>{tableForm.status}</StatusPill>
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  QR ordering link and QR preview appear automatically after the table is created.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <form className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={addTable}>
-            <Field label="Table name">
-              <input
-                className={fieldStyles}
-                placeholder="Table 12"
-                required
-                value={tableForm.name}
-                onChange={(event) => updateTableField("name", event.target.value)}
-              />
-            </Field>
-            <Field label="Seats">
-              <select className={fieldStyles} value={tableForm.seats} onChange={(event) => updateTableField("seats", Number(event.target.value))}>
-                {TABLE_SEAT_OPTIONS.map((seatCount) => (
-                  <option key={seatCount} value={seatCount}>
-                    {seatCount} seats
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <div className="md:col-span-2">
-              <Field label="Status">
-                <select className={fieldStyles} value={tableForm.status} onChange={(event) => updateTableField("status", event.target.value)}>
-                  {TABLE_STATUS_OPTIONS.map((statusOption) => (
-                    <option key={statusOption} value={statusOption}>
-                      {statusOption}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div className="md:col-span-2">
-              <button className={`${buttonStyles.primary} w-full justify-center py-3`} disabled={addingTable || !canUseBusinessTools} type="submit">
-                {addingTable ? "Creating..." : "Create table"}
-              </button>
-            </div>
-          </form>
+          <TableCreatePanel
+            addingTable={addingTable}
+            canUseBusinessTools={canUseBusinessTools}
+            tableForm={tableForm}
+            onFieldChange={updateTableField}
+            onSubmit={addTable}
+          />
         </SectionCard>
 
         <SectionCard title="Tables" description="Each table gets its own QR preview so guests can scan and order.">
+          {isLocalOnlyOrderOrigin() ? (
+            <MessageBanner tone="warning">
+              QR linki için public adres bulunamadı. api/.env içinde CLIENT_ORIGINS veya PUBLIC_APP_URL ayarlayın (ör.
+              Vercel URL’niz).
+            </MessageBanner>
+          ) : publicOrderBase ? (
+            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">
+              <span className="font-semibold">Misafir linkleri:</span>{" "}
+              <span className="break-all font-medium">{publicOrderBase}</span>
+            </div>
+          ) : null}
+
           {tables.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-              {tables.map((table) => {
-                const orderLink = getOrderLink(table.id);
-                const qrImageUrl = getTableQrImageUrl(table.id);
-
-                return (
-                  <article key={table.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-semibold text-slate-900">{table.name}</p>
-                        <p className="mt-1 text-sm text-slate-500">{table.seats} seats</p>
-                      </div>
-                      <StatusPill tone={getTableTone(table.status)}>{table.status}</StatusPill>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-[120px_minmax(0,1fr)] gap-4">
-                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-2">
-                        <img alt={`${table.name} QR code`} className="h-full w-full rounded-xl object-cover" src={qrImageUrl} />
-                      </div>
-
-                      <div className="space-y-3">
-                        <Field label="Status">
-                          <select
-                            className={fieldStyles}
-                            disabled={updatingTableId === table.id}
-                            value={table.status}
-                            onChange={(event) => updateTableStatus(table.id, event.target.value)}
-                          >
-                            {TABLE_STATUS_OPTIONS.map((statusOption) => (
-                              <option key={statusOption} value={statusOption}>
-                                {statusOption}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-
-                        <div className="rounded-2xl border border-slate-200 bg-white px-3 py-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">QR link</p>
-                          <a className="mt-2 block truncate text-sm text-brand-700 hover:text-brand-900" href={orderLink} rel="noreferrer" target="_blank">
-                            {orderLink}
-                          </a>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <button className={buttonStyles.secondary} onClick={() => copyToClipboard(orderLink, `${table.name} order link`)} type="button">
-                            Copy link
-                          </button>
-                          <button className={buttonStyles.subtle} onClick={() => copyToClipboard(qrImageUrl, `${table.name} QR image link`)} type="button">
-                            Copy QR
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+              {tables.map((table) => (
+                <TableQrCard
+                  key={table.id}
+                  orderLink={getTableOrderLink(table.id)}
+                  printingTableId={printingTableId}
+                  table={table}
+                  updatingTableId={updatingTableId}
+                  onCopyLink={(link, name) => copyToClipboard(link, `${name} order link`)}
+                  onPrint={handlePrintTableQr}
+                  onStatusChange={updateTableStatus}
+                />
+              ))}
             </div>
           ) : (
             <EmptyState title="No tables yet" description="Add a table to start dine-in ordering." />
@@ -1270,70 +1221,67 @@ export default function OwnerPage({ session, onLogout }) {
         </SectionCard>
 
         <SectionCard
-          title="Plan"
-          description="Choose a plan and complete payment with Iyzico to unlock restaurant tools."
+          title="Abonelik ve plan"
+          description={
+            canUseBusinessTools
+              ? "Mevcut planınızı görüntüleyin veya farklı bir plana geçmek için yeni ödeme başlatın."
+              : "Plan seçimi ilk girişte açılan pencereden yapılır."
+          }
         >
-          <form className="space-y-4" onSubmit={activatePlan}>
-            <div className="space-y-3">
-              {plans.map((plan) => {
-                const isSelected = selectedPlanId === plan.id;
-                const isCurrent = currentPlan?.id === plan.id;
-
-                return (
-                  <label
-                    key={plan.id}
-                    className={`flex cursor-pointer items-start justify-between rounded-xl border px-4 py-4 transition ${
-                      isSelected ? "border-brand-500 bg-brand-50" : "border-slate-200 bg-white hover:border-slate-300"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-medium text-slate-900">{plan.displayName}</p>
-                      <p className="mt-1 text-sm text-slate-500">{plan.description}</p>
-                    </div>
-                    <div className="ml-4 text-right">
-                      <p className="font-semibold text-slate-900">${plan.monthlyPrice}</p>
-                      {isCurrent ? <p className="mt-1 text-xs font-medium text-brand-700">Current plan</p> : null}
-                    </div>
-                    <input
-                      checked={isSelected}
-                      className="sr-only"
-                      name="plan"
-                      onChange={() => setSelectedPlanId(plan.id)}
-                      type="radio"
-                    />
-                  </label>
-                );
-              })}
-            </div>
-            <button className={buttonStyles.primary} disabled={savingPlan || !selectedPlan} type="submit">
-              {savingPlan
-                ? "Opening payment..."
-                : selectedPlan
-                ? `Pay with Iyzico - ${selectedPlan.displayName} (${selectedPlan.monthlyPrice} TRY)`
-                : "Select a plan"}
-            </button>
-            <p className="text-xs text-slate-500">
-              You will be redirected to Iyzico's secure checkout. Your plan activates automatically once the payment
-              succeeds.
+          {canUseBusinessTools ? (
+            <OwnerPlanCheckout
+              currentPlan={currentPlan}
+              onSelectPlanId={setSelectedPlanId}
+              onSubmit={activatePlan}
+              plans={plans}
+              savingPlan={savingPlan}
+              selectedPlanId={selectedPlanId}
+            />
+          ) : (
+            <p className="text-sm text-slate-600">
+              Dashboard kilitli. Plan seçimi ve ödeme penceresini tamamlayın; ardından ayarlardan planınızı
+              yönetebilirsiniz.
             </p>
-          </form>
+          )}
         </SectionCard>
       </div>
     );
   }
 
+  function handleTabChange(tabId) {
+    if (showPlanGate) {
+      return;
+    }
+    setActiveTab(tabId);
+  }
+
   return (
     <AppShell>
-      <div className="space-y-5">
+      {showPlanGate ? (
+        <OwnerPlanGateModal
+          error={error}
+          onLogout={onLogout}
+          onSelectPlanId={setSelectedPlanId}
+          onSubmit={activatePlan}
+          plans={plans}
+          restaurantName={restaurantName}
+          savingPlan={savingPlan}
+          selectedPlanId={selectedPlanId}
+        />
+      ) : null}
+
+      <div className={showPlanGate ? "pointer-events-none select-none opacity-40" : "space-y-5"}>
         <PageHeader
           actions={
             <>
-              <button className={buttonStyles.secondary} onClick={() => loadData()} type="button">
+              <button className={buttonStyles.secondary} disabled={showPlanGate} onClick={() => loadData()} type="button">
                 Refresh
               </button>
-              <Link className={buttonStyles.secondary} to="/owner/online-orders">
-                Online Orders
-              </Link>
+              {canUseBusinessTools ? (
+                <Link className={buttonStyles.secondary} to="/owner/online-orders">
+                  Online Orders
+                </Link>
+              ) : null}
               <button className={buttonStyles.secondary} onClick={onLogout} type="button">
                 Logout
               </button>
@@ -1345,27 +1293,34 @@ export default function OwnerPage({ session, onLogout }) {
           title={restaurantName}
         />
 
-        {requiresPlanSelection ? (
-          <MessageBanner tone="warning">
-            A plan is required before staff, table, and menu tools become active.
-          </MessageBanner>
-        ) : null}
         {message ? <MessageBanner tone="success">{message}</MessageBanner> : null}
-        {error ? <MessageBanner tone="error">{error}</MessageBanner> : null}
+        {!showPlanGate && error ? <MessageBanner tone="error">{error}</MessageBanner> : null}
 
-        <Tabs activeKey={activeTab} items={OWNER_TABS} onChange={setActiveTab} />
+        {!showPlanGate ? <Tabs activeKey={activeTab} items={OWNER_TABS} onChange={handleTabChange} /> : null}
 
         {loading ? (
           <SectionCard>
             <p className="text-sm text-slate-600">Loading workspace...</p>
           </SectionCard>
         ) : null}
-        {!loading && activeTab === "overview" ? renderOverview() : null}
-        {!loading && activeTab === "staff" ? renderStaff() : null}
-        {!loading && activeTab === "tables" ? renderTables() : null}
-        {!loading && activeTab === "menu" ? renderMenu() : null}
-        {!loading && activeTab === "inventory" ? renderInventory() : null}
-        {!loading && activeTab === "settings" ? renderSettings() : null}
+        {!loading && !showPlanGate && activeTab === "overview" ? renderOverview() : null}
+        {!loading && !showPlanGate && activeTab === "staff" ? renderStaff() : null}
+        {!loading && !showPlanGate && activeTab === "tables" ? renderTables() : null}
+        {!loading && !showPlanGate && activeTab === "menu" ? renderMenu() : null}
+        {!loading && !showPlanGate && activeTab === "inventory" ? renderInventory() : null}
+        {!loading && !showPlanGate && activeTab === "settings" ? renderSettings() : null}
+      </div>
+
+      <div className="print-area" aria-hidden="true">
+        {printTableQr ? (
+          <TableQrPrint
+            orderLink={printTableQr.orderLink}
+            qrDataUrl={printTableQr.qrDataUrl}
+            restaurantName={restaurantName}
+            seats={printTableQr.seats}
+            tableName={printTableQr.tableName}
+          />
+        ) : null}
       </div>
     </AppShell>
   );

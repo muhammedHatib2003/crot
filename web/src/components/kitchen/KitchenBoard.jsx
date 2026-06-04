@@ -13,7 +13,7 @@ const FILTER_OPTIONS = [
   { key: "DELIVERY", label: "Delivery" }
 ];
 
-export default function KitchenBoard({ groupedOrders, busyOrderId, filterType, onFilterChange, onAction }) {
+export default function KitchenBoard({ groupedOrders, busyOrderId, filterType, onFilterChange, onAction, onPrint, onCancel }) {
   const totalVisibleOrders = BOARD_COLUMNS.reduce((total, column) => total + (groupedOrders[column.key] || []).length, 0);
 
   return (
@@ -53,6 +53,8 @@ export default function KitchenBoard({ groupedOrders, busyOrderId, filterType, o
             key={column.key}
             busyOrderId={busyOrderId}
             onAction={onAction}
+            onCancel={onCancel}
+            onPrint={onPrint}
             orders={groupedOrders[column.key] || []}
             status={column.key}
             title={column.title}

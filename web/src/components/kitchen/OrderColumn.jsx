@@ -21,7 +21,7 @@ const COLUMN_STYLES = {
   }
 };
 
-export default function OrderColumn({ title, status, orders, busyOrderId, onAction }) {
+export default function OrderColumn({ title, status, orders, busyOrderId, onAction, onPrint, onCancel }) {
   const style = COLUMN_STYLES[status] || COLUMN_STYLES.PENDING;
   const lateOrders = orders.filter((order) => order.isLate).length;
 
@@ -54,6 +54,8 @@ export default function OrderColumn({ title, status, orders, busyOrderId, onActi
               key={order.id}
               busy={busyOrderId === order.id}
               onAction={onAction}
+              onCancel={onCancel}
+              onPrint={onPrint}
               order={order}
             />
           ))

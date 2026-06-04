@@ -38,7 +38,14 @@ function parseConversationId(conversationId) {
   if (!conversationId || typeof conversationId !== "string") {
     return null;
   }
-  const parts = conversationId.split("-");
+
+  const trimmed = conversationId.trim();
+  const regexMatch = trimmed.match(/^sub-(.+)-([a-z0-9]+)$/i);
+  if (regexMatch) {
+    return { restaurantId: regexMatch[1], stamp: regexMatch[2] };
+  }
+
+  const parts = trimmed.split("-");
   if (parts.length < 3 || parts[0] !== SUBSCRIPTION_CONVERSATION_PREFIX) {
     return null;
   }
@@ -48,6 +55,23 @@ function parseConversationId(conversationId) {
     return null;
   }
   return { restaurantId, stamp };
+}
+
+function normalizeMoneyAmount(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.round(parsed * 100) / 100;
+}
+
+function pricesMatch(expected, paid) {
+  const normalizedExpected = normalizeMoneyAmount(expected);
+  const normalizedPaid = normalizeMoneyAmount(paid);
+  if (normalizedExpected === null || normalizedPaid === null) {
+    return false;
+  }
+  return Math.abs(normalizedPaid - normalizedExpected) < 0.02;
 }
 
 async function startSubscriptionCheckout({ ownerUserId, restaurantId, planId }) {
@@ -108,11 +132,15 @@ async function startSubscriptionCheckout({ ownerUserId, restaurantId, planId }) 
     create: {
       restaurantId,
       planId,
-      status: "PENDING_PAYMENT"
+      status: "PENDING_PAYMENT",
+      iyzicoToken: initResponse.token || null,
+      iyzicoConversationId: conversationId
     },
     update: {
       planId,
-      status: "PENDING_PAYMENT"
+      status: "PENDING_PAYMENT",
+      iyzicoToken: initResponse.token || null,
+      iyzicoConversationId: conversationId
     }
   });
 
@@ -125,7 +153,11 @@ async function startSubscriptionCheckout({ ownerUserId, restaurantId, planId }) 
       id: plan.id,
       code: plan.code,
       displayName: plan.displayName,
-      monthlyPrice: plan.monthlyPrice
+      monthlyPrice: plan.monthlyPrice,
+      currency: plan.currency || "TRY",
+      billingPeriod: plan.billingPeriod || "monthly",
+      features: plan.features || {},
+      limits: plan.limits || {}
     }
   };
 }
@@ -137,26 +169,44 @@ async function handleSubscriptionCallback({ token }) {
     };
   }
 
+  const subscriptionByToken = await prisma.subscription.findFirst({
+    where: { iyzicoToken: token },
+    include: { plan: true, restaurant: true }
+  });
+
   let retrieveResponse;
   try {
-    retrieveResponse = await iyzicoService.retrieveCheckoutForm({ token });
+    retrieveResponse = await iyzicoService.retrieveCheckoutForm({
+      token,
+      conversationId: subscriptionByToken?.iyzicoConversationId || undefined
+    });
   } catch (error) {
     return {
       redirectUrl: buildResultRedirectUrl("failure", { reason: "iyzico_retrieve_failed" })
     };
   }
 
-  const parsed = parseConversationId(retrieveResponse.conversationId);
-  if (!parsed) {
+  let restaurantId = subscriptionByToken?.restaurantId || null;
+
+  if (!restaurantId) {
+    const parsed = parseConversationId(
+      retrieveResponse.conversationId || subscriptionByToken?.iyzicoConversationId
+    );
+    restaurantId = parsed?.restaurantId || null;
+  }
+
+  if (!restaurantId) {
     return {
       redirectUrl: buildResultRedirectUrl("failure", { reason: "conversation_mismatch" })
     };
   }
 
-  const subscription = await prisma.subscription.findUnique({
-    where: { restaurantId: parsed.restaurantId },
-    include: { plan: true, restaurant: true }
-  });
+  const subscription =
+    subscriptionByToken ||
+    (await prisma.subscription.findUnique({
+      where: { restaurantId },
+      include: { plan: true, restaurant: true }
+    }));
 
   if (!subscription || !subscription.plan) {
     return {
@@ -164,41 +214,66 @@ async function handleSubscriptionCallback({ token }) {
     };
   }
 
+  const storedConversationId = subscription.iyzicoConversationId || "";
+  const returnedConversationId = String(retrieveResponse.conversationId || "").trim();
+  if (
+    storedConversationId &&
+    returnedConversationId &&
+    storedConversationId !== returnedConversationId
+  ) {
+    await prisma.subscription.update({
+      where: { restaurantId },
+      data: {
+        status: "PAYMENT_FAILED",
+        iyzicoToken: null
+      }
+    });
+    return {
+      redirectUrl: buildResultRedirectUrl("failure", {
+        restaurantId,
+        reason: "conversation_mismatch"
+      })
+    };
+  }
+
   const isSuccess =
     retrieveResponse.status === "success" &&
     String(retrieveResponse.paymentStatus || "").toUpperCase() === "SUCCESS";
 
-  const expectedPrice = Number(subscription.plan.monthlyPrice);
-  const paidPrice = Number(retrieveResponse.paidPrice || retrieveResponse.price || 0);
-  const priceMatches = Number.isFinite(paidPrice) && Math.abs(paidPrice - expectedPrice) < 0.01;
+  const expectedPrice = subscription.plan.monthlyPrice;
+  const paidPrice = retrieveResponse.paidPrice ?? retrieveResponse.price;
+  const priceMatches = pricesMatch(expectedPrice, paidPrice);
 
   if (isSuccess && priceMatches) {
     await prisma.subscription.update({
-      where: { restaurantId: parsed.restaurantId },
+      where: { restaurantId },
       data: {
         status: "ACTIVE",
-        activatedAt: new Date()
+        activatedAt: new Date(),
+        iyzicoToken: null,
+        iyzicoConversationId: null
       }
     });
 
     return {
       redirectUrl: buildResultRedirectUrl("success", {
-        restaurantId: parsed.restaurantId,
+        restaurantId,
         planCode: subscription.plan.code
       })
     };
   }
 
   await prisma.subscription.update({
-    where: { restaurantId: parsed.restaurantId },
+    where: { restaurantId },
     data: {
-      status: "PAYMENT_FAILED"
+      status: "PAYMENT_FAILED",
+      iyzicoToken: null
     }
   });
 
   return {
     redirectUrl: buildResultRedirectUrl("failure", {
-      restaurantId: parsed.restaurantId,
+      restaurantId,
       reason: retrieveResponse.errorCode || (priceMatches ? "payment_failed" : "price_mismatch")
     })
   };
@@ -228,7 +303,11 @@ async function getSubscriptionPaymentStatus({ restaurantId }) {
             id: subscription.plan.id,
             code: subscription.plan.code,
             displayName: subscription.plan.displayName,
-            monthlyPrice: subscription.plan.monthlyPrice
+            monthlyPrice: subscription.plan.monthlyPrice,
+            currency: subscription.plan.currency || "TRY",
+            billingPeriod: subscription.plan.billingPeriod || "monthly",
+            features: subscription.plan.features || {},
+            limits: subscription.plan.limits || {}
           }
         : null
     }

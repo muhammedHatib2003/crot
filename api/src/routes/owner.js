@@ -19,6 +19,8 @@ const {
 } = require("../services/inventory");
 const { listMenuItems, mapMenuItem, MENU_ITEM_AVAILABILITY_INCLUDE } = require("../utils/menu");
 
+const config = require("../config");
+
 const router = express.Router();
 const ALLOWED_EMPLOYEE_ROLES = new Set(["chef", "cashier", "waiter", "inventory_manager", "courier"]);
 const ALLOWED_TABLE_STATUSES = new Set(["AVAILABLE", "OCCUPIED", "RESERVED", "CLEANING"]);
@@ -114,7 +116,11 @@ function mapSubscription(subscription) {
       id: subscription.plan.id,
       code: subscription.plan.code,
       displayName: subscription.plan.displayName,
-      monthlyPrice: subscription.plan.monthlyPrice
+      monthlyPrice: subscription.plan.monthlyPrice,
+      currency: subscription.plan.currency || "TRY",
+      billingPeriod: subscription.plan.billingPeriod || "monthly",
+      features: subscription.plan.features || {},
+      limits: subscription.plan.limits || {}
     }
   };
 }
@@ -228,7 +234,8 @@ router.get("/dashboard", async (req, res, next) => {
       tablesCount,
       menuItemsCount,
       requiresPlanSelection,
-      subscription: mapSubscription(restaurant.subscription)
+      subscription: mapSubscription(restaurant.subscription),
+      publicAppUrl: config.publicAppUrl
     });
   } catch (error) {
     return next(error);

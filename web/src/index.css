@@ -230,6 +230,480 @@ body {
   z-index: -1;
 }
 
+/* --- Language switcher ------------------------------------------------- */
+@keyframes lang-flip-in {
+  0% {
+    opacity: 0;
+    transform: rotateY(-90deg) scale(0.8);
+  }
+  60% {
+    opacity: 1;
+    transform: rotateY(10deg) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) scale(1);
+  }
+}
+
+@keyframes lang-globe-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes lang-menu-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes lang-item-slide {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes lang-active-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+}
+
+.lang-switcher__trigger {
+  perspective: 500px;
+}
+
+.lang-switcher__icon {
+  display: inline-block;
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform 240ms ease;
+  transform-origin: center;
+}
+
+.lang-switcher__trigger:hover .lang-switcher__icon {
+  animation: lang-globe-spin 1.2s linear;
+}
+
+.lang-switcher__flip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transform-style: preserve-3d;
+  animation: lang-flip-in 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lang-switcher__chevron {
+  display: inline-flex;
+  transition: transform 200ms ease;
+}
+
+.lang-switcher__trigger--open .lang-switcher__chevron {
+  transform: rotate(180deg);
+}
+
+.lang-switcher__menu {
+  transform-origin: top right;
+  animation: lang-menu-pop 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lang-switcher__menu-item-wrapper {
+  opacity: 0;
+  animation: lang-item-slide 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lang-switcher__menu-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.lang-switcher__menu-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.18), transparent);
+  transform: translateX(-160%);
+  transition: transform 600ms ease;
+  pointer-events: none;
+}
+
+.lang-switcher__menu-item:hover::after {
+  transform: translateX(260%);
+}
+
+.lang-switcher__active-dot {
+  position: absolute;
+  right: -0.5rem;
+  top: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: rgb(16, 185, 129);
+  transform: translateY(-50%);
+  animation: lang-active-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-switcher__flip,
+  .lang-switcher__menu,
+  .lang-switcher__menu-item-wrapper,
+  .lang-switcher__icon,
+  .lang-switcher__active-dot {
+    animation: none !important;
+  }
+
+  .lang-switcher__menu-item::after {
+    transition: none !important;
+  }
+}
+
+/* --- Print tickets (kitchen ticket + customer receipt) ----------------- */
+.print-area {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  width: 80mm;
+  pointer-events: none;
+  background: #ffffff;
+  color: #000000;
+}
+
+.print-ticket {
+  width: 80mm;
+  padding: 6mm 5mm;
+  margin: 0 auto;
+  background: #ffffff;
+  color: #000000;
+  font-family: "Courier New", "Consolas", monospace;
+  font-size: 13pt;
+  line-height: 1.35;
+}
+
+.print-ticket--customer {
+  font-size: 11pt;
+}
+
+.print-ticket__header {
+  text-align: center;
+  margin-bottom: 4mm;
+}
+
+.print-ticket__restaurant {
+  font-size: 18pt;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.print-ticket__subtitle {
+  margin: 1mm 0 0;
+  font-size: 12pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.print-ticket__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  margin-bottom: 2mm;
+}
+
+.print-ticket__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 3mm;
+}
+
+.print-ticket__row--block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5mm;
+}
+
+.print-ticket__row--total {
+  margin-top: 2mm;
+  padding-top: 2mm;
+  border-top: 1px dashed #000;
+}
+
+.print-ticket__label {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10pt;
+  letter-spacing: 0.04em;
+}
+
+.print-ticket__label--strong {
+  font-size: 14pt;
+  font-weight: 800;
+}
+
+.print-ticket__value {
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+}
+
+.print-ticket__value--strong {
+  font-weight: 800;
+  font-size: 14pt;
+}
+
+.print-ticket__divider {
+  border-top: 1px dashed #000;
+  margin: 3mm 0;
+}
+
+.print-ticket__items {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+}
+
+.print-ticket--kitchen .print-ticket__item {
+  border-bottom: 1px dotted #000;
+  padding-bottom: 1.5mm;
+}
+
+.print-ticket__item-line {
+  display: flex;
+  gap: 3mm;
+  font-size: 16pt;
+  font-weight: 800;
+  align-items: baseline;
+}
+
+.print-ticket__qty {
+  min-width: 12mm;
+  font-weight: 900;
+}
+
+.print-ticket__item-name {
+  flex: 1;
+  word-break: break-word;
+  text-transform: uppercase;
+}
+
+.print-ticket__item-note {
+  margin: 0.5mm 0 0 12mm;
+  font-size: 11pt;
+  font-style: italic;
+}
+
+.print-ticket__items--receipt {
+  font-size: 10pt;
+}
+
+.print-ticket__items-header,
+.print-ticket__item-row {
+  display: grid;
+  grid-template-columns: 9mm 1fr 13mm 14mm;
+  gap: 2mm;
+  align-items: baseline;
+}
+
+.print-ticket__items-header {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 9pt;
+  border-bottom: 1px solid #000;
+  padding-bottom: 1mm;
+  margin-bottom: 1mm;
+}
+
+.print-ticket__col--qty {
+  text-align: left;
+}
+
+.print-ticket__col--name {
+  text-align: left;
+  word-break: break-word;
+}
+
+.print-ticket__col--price,
+.print-ticket__col--total {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-ticket__empty {
+  text-align: center;
+  font-style: italic;
+  margin: 2mm 0;
+}
+
+.print-ticket__totals {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.print-ticket__note,
+.print-ticket__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.print-ticket__thanks {
+  text-align: center;
+  margin-top: 2mm;
+  font-size: 11pt;
+}
+
+.print-ticket__thanks p {
+  margin: 0.5mm 0;
+}
+
+.print-table-qr {
+  width: 80mm;
+  padding: 6mm 5mm;
+  margin: 0 auto;
+  text-align: center;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.print-table-qr__header {
+  margin-bottom: 4mm;
+}
+
+.print-table-qr__restaurant {
+  margin: 0;
+  font-size: 16pt;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.print-table-qr__subtitle {
+  margin: 1mm 0 0;
+  font-size: 11pt;
+  font-weight: 600;
+}
+
+.print-table-qr__table {
+  margin-bottom: 4mm;
+}
+
+.print-table-qr__table-name {
+  margin: 0;
+  font-size: 22pt;
+  font-weight: 900;
+}
+
+.print-table-qr__table-meta {
+  margin: 1mm 0 0;
+  font-size: 11pt;
+}
+
+.print-table-qr__code-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 2mm 0;
+}
+
+.print-table-qr__code {
+  width: 52mm;
+  height: 52mm;
+  object-fit: contain;
+}
+
+.print-table-qr__hint {
+  margin: 3mm 0 0;
+  font-size: 10pt;
+  font-weight: 600;
+}
+
+.print-table-qr__link {
+  margin: 2mm 0 0;
+  font-size: 7pt;
+  word-break: break-all;
+  color: #333333;
+}
+
+@media screen {
+  .print-area {
+    visibility: hidden;
+  }
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+
+  .print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: auto !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    z-index: 99999 !important;
+    pointer-events: auto !important;
+    overflow: visible !important;
+  }
+
+  .print-area::before {
+    content: "";
+    display: block;
+    height: 0;
+  }
+
+  .print-ticket,
+  .print-table-qr {
+    box-shadow: none !important;
+    width: 80mm !important;
+    padding: 4mm !important;
+    margin: 0 auto !important;
+  }
+
+  .print-table-qr__code {
+    width: 52mm !important;
+    height: 52mm !important;
+  }
+
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ui-enter,
   .cashier-table-card--ready,

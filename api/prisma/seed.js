@@ -11,19 +11,88 @@ const DEFAULT_PLANS = [
     code: "STARTER",
     displayName: "Starter",
     monthlyPrice: 29,
-    description: "Small cafe setup with basic employee management."
+    description: "Small cafe setup with basic employee management.",
+    currency: "TRY",
+    billingPeriod: "monthly",
+    isActive: true,
+    features: {
+      onlineOrdering: false,
+      qrMenu: true,
+      tableManagement: true,
+      kitchenPanel: true,
+      cashierPanel: true,
+      courierModule: false,
+      warehouseModule: false,
+      reports: false,
+      customDomain: false,
+      multiLanguage: true,
+      prioritySupport: false
+    },
+    limits: {
+      maxProducts: 50,
+      maxTables: 10,
+      maxUsers: 5,
+      maxBranches: 1,
+      maxOrdersPerMonth: 1000
+    }
   },
   {
     code: "GROWTH",
     displayName: "Growth",
     monthlyPrice: 79,
-    description: "Best for active restaurants with multiple teams."
+    description: "Best for active restaurants with multiple teams.",
+    currency: "TRY",
+    billingPeriod: "monthly",
+    isActive: true,
+    features: {
+      onlineOrdering: true,
+      qrMenu: true,
+      tableManagement: true,
+      kitchenPanel: true,
+      cashierPanel: true,
+      courierModule: true,
+      warehouseModule: true,
+      reports: true,
+      customDomain: false,
+      multiLanguage: true,
+      prioritySupport: false
+    },
+    limits: {
+      maxProducts: 250,
+      maxTables: 40,
+      maxUsers: 20,
+      maxBranches: 3,
+      maxOrdersPerMonth: 10000
+    }
   },
   {
     code: "PREMIUM",
     displayName: "Premium",
     monthlyPrice: 149,
-    description: "Advanced tier for larger operations and scaling."
+    description: "Advanced tier for larger operations and scaling.",
+    currency: "TRY",
+    billingPeriod: "monthly",
+    isActive: true,
+    features: {
+      onlineOrdering: true,
+      qrMenu: true,
+      tableManagement: true,
+      kitchenPanel: true,
+      cashierPanel: true,
+      courierModule: true,
+      warehouseModule: true,
+      reports: true,
+      customDomain: true,
+      multiLanguage: true,
+      prioritySupport: true
+    },
+    limits: {
+      maxProducts: null,
+      maxTables: null,
+      maxUsers: null,
+      maxBranches: 10,
+      maxOrdersPerMonth: null
+    }
   }
 ];
 
@@ -331,15 +400,34 @@ const ONLINE_ORDER_SAMPLE_RESTAURANTS = [
 
 async function seedPlans() {
   for (const plan of DEFAULT_PLANS) {
-    await prisma.plan.upsert({
-      where: { code: plan.code },
-      update: {
-        displayName: plan.displayName,
-        monthlyPrice: plan.monthlyPrice,
-        description: plan.description
-      },
-      create: plan
-    });
+    const existing = await prisma.plan.findUnique({ where: { code: plan.code } });
+
+    if (!existing) {
+      await prisma.plan.create({ data: plan });
+      continue;
+    }
+
+    const update = {
+      displayName: plan.displayName,
+      description: plan.description,
+      currency: plan.currency,
+      billingPeriod: plan.billingPeriod
+    };
+
+    if (existing.monthlyPrice == null) {
+      update.monthlyPrice = plan.monthlyPrice;
+    }
+    if (existing.isActive == null) {
+      update.isActive = plan.isActive;
+    }
+    if (existing.features == null) {
+      update.features = plan.features;
+    }
+    if (existing.limits == null) {
+      update.limits = plan.limits;
+    }
+
+    await prisma.plan.update({ where: { code: plan.code }, data: update });
   }
 }
 

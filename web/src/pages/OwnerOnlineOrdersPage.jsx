@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import {
+  apiRequest,
   createOwnerMenuCategory,
   createOwnerMenuProduct,
   deleteOwnerMenuCategory,
@@ -59,6 +60,7 @@ export default function OwnerOnlineOrdersPage({ session, onLogout }) {
   const token = session?.token;
   const [activeTab, setActiveTab] = useState(TABS[0].id);
   const [loading, setLoading] = useState(true);
+  const [planRequired, setPlanRequired] = useState(false);
   const [refreshingOrders, setRefreshingOrders] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -159,6 +161,12 @@ export default function OwnerOnlineOrdersPage({ session, onLogout }) {
     setLoading(true);
     setError("");
     try {
+      const dashboard = await apiRequest("/owner/dashboard", { token });
+      if (dashboard.requiresPlanSelection) {
+        setPlanRequired(true);
+        return;
+      }
+
       const [r, c, p, o] = await Promise.all([
         getOwnerOnlineRestaurantSettings(token),
         getOwnerMenuCategories(token),
@@ -307,6 +315,10 @@ export default function OwnerOnlineOrdersPage({ session, onLogout }) {
   }
 
   if (loading) return <div className="mx-auto max-w-7xl px-4 py-8 text-slate-600">Online owner panel yukleniyor...</div>;
+
+  if (planRequired) {
+    return <Navigate replace to="/owner" />;
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-4 py-8">

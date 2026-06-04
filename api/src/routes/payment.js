@@ -2,7 +2,12 @@ const express = require("express");
 const prisma = require("../db");
 const { authenticate, requireRoles } = require("../middleware/auth");
 const { getEmployeeContext, normalizeEmployeeRole } = require("../utils/employees");
-const { ACTIVE_ORDER_STATUSES, READY_ORDER_STATUSES, mapOrder, mapPayment } = require("../utils/orders");
+const {
+  ACTIVE_ORDER_STATUSES,
+  CASHIER_VISIBLE_STATUSES,
+  mapOrder,
+  mapPayment
+} = require("../utils/orders");
 const { PosServiceError, listRoleOrders, updateOrderStatus } = require("../services/pos.service");
 const { syncTableStatus } = require("../utils/tables");
 
@@ -69,7 +74,7 @@ router.get("/orders", async (req, res, next) => {
       return res.status(error.status).json({ message: error.message });
     }
 
-    const orders = await listRoleOrders(employee.restaurantId, READY_ORDER_STATUSES);
+    const orders = await listRoleOrders(employee.restaurantId, CASHIER_VISIBLE_STATUSES);
     return res.json({ orders });
   } catch (error) {
     return handleServiceError(res, error, next);

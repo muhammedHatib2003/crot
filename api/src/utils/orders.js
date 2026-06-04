@@ -1,6 +1,7 @@
 const ACTIVE_ORDER_STATUSES = ["PENDING", "ACCEPTED", "PREPARING", "READY"];
 const KITCHEN_ORDER_STATUSES = ["PENDING", "ACCEPTED", "PREPARING", "READY"];
 const READY_ORDER_STATUSES = ["READY"];
+const CASHIER_VISIBLE_STATUSES = ["READY", "ON_THE_WAY"];
 const TABLE_DB_ORDER_TYPES = ["DINE_IN"];
 
 const ROLE_ALIASES = {
@@ -14,7 +15,7 @@ const ROLE_ALIASES = {
 
 const ROLE_ORDER_STATUS_ACCESS = {
   kitchen: KITCHEN_ORDER_STATUSES,
-  cashier: READY_ORDER_STATUSES,
+  cashier: CASHIER_VISIBLE_STATUSES,
   waiter: ACTIVE_ORDER_STATUSES,
   owner: ACTIVE_ORDER_STATUSES,
   courier: ["READY", "SERVED"]
@@ -22,13 +23,14 @@ const ROLE_ORDER_STATUS_ACCESS = {
 
 const ROLE_ORDER_TRANSITIONS = {
   kitchen: {
-    PENDING: ["ACCEPTED", "PREPARING"],
-    ACCEPTED: ["PREPARING"],
-    PREPARING: ["READY"],
+    PENDING: ["ACCEPTED", "PREPARING", "CANCELLED"],
+    ACCEPTED: ["PREPARING", "CANCELLED"],
+    PREPARING: ["READY", "CANCELLED"],
     READY: ["COMPLETED"]
   },
   cashier: {
-    READY: ["PAID", "COMPLETED"]
+    READY: ["PAID", "COMPLETED", "ON_THE_WAY", "CANCELLED"],
+    ON_THE_WAY: ["COMPLETED", "CANCELLED"]
   },
   waiter: {
     READY: ["PAID", "COMPLETED"]
@@ -41,9 +43,22 @@ const ROLE_ORDER_TRANSITIONS = {
     PENDING: ["ACCEPTED", "PREPARING", "PAID", "COMPLETED", "CANCELLED"],
     ACCEPTED: ["PREPARING", "PAID", "COMPLETED", "CANCELLED"],
     PREPARING: ["READY", "PAID", "COMPLETED", "CANCELLED"],
-    READY: ["PAID", "COMPLETED", "CANCELLED"]
+    READY: ["PAID", "COMPLETED", "CANCELLED", "ON_THE_WAY"],
+    ON_THE_WAY: ["COMPLETED", "CANCELLED"]
   }
 };
+
+const STATUS_ALIASES = {
+  OUT_FOR_DELIVERY: "ON_THE_WAY"
+};
+
+function normalizeOrderStatus(rawStatus) {
+  const upper = String(rawStatus || "").trim().toUpperCase();
+  if (!upper) {
+    return "";
+  }
+  return STATUS_ALIASES[upper] || upper;
+}
 
 function formatOrderCode(orderCode) {
   const rawValue = String(orderCode || "").trim();
@@ -110,7 +125,7 @@ function mapPayment(payment) {
 
   return {
     id: payment.id,
-    receiptCode: formatOrderCode(payment.receiptCode),
+    receiptCode: formatOrderCode(payment.receiptCode || payment.id),
     paymentMethod: payment.paymentMethod,
     totalCents: payment.totalCents,
     total: payment.totalCents / 100,
@@ -146,6 +161,7 @@ function mapOrder(order) {
     source: String(order.source || "WAITER").trim().toUpperCase(),
     status: order.status,
     paymentStatus: order.paymentStatus,
+    paymentMethod: order.paymentMethod || null,
     customerName: order.customerName || null,
     customerPhone: order.customerPhone || null,
     customerUserId: order.customerUserId || null,
@@ -166,6 +182,7 @@ function mapOrder(order) {
     totalPrice: order.totalCents / 100,
     preparingAt: order.preparingAt || null,
     readyAt: order.readyAt || null,
+    pickupTime: order.pickupTime || null,
     kitchenCompletedAt: order.kitchenCompletedAt || null,
     waiterSeenAt: order.waiterSeenAt || null,
     completedAt: order.completedAt || null,
@@ -209,8 +226,8 @@ function getVisibleStatusesForRole(actorRole) {
   return ROLE_ORDER_STATUS_ACCESS[normalizedRole] || [];
 }
 
-function buildOrderStatusUpdateData(nextStatus, currentOrder) {
-  const normalizedStatus = String(nextStatus || "").trim().toUpperCase();
+function buildOrderStatusUpdateData(nextStatus, currentOrder, options = {}) {
+  const normalizedStatus = normalizeOrderStatus(nextStatus);
   const now = new Date();
   const data = {
     status: normalizedStatus
@@ -239,6 +256,21 @@ function buildOrderStatusUpdateData(nextStatus, currentOrder) {
     data.completedAt = now;
   }
 
+  if (normalizedStatus === "CANCELLED") {
+    if (!currentOrder.cancelledAt) {
+      data.cancelledAt = now;
+    }
+
+    const rawReason = String(options.cancellationReason || "").trim();
+    if (rawReason) {
+      const actor = String(options.cancelledBy || "").trim();
+      const prefix = actor ? `[CANCELLED by ${actor}]` : "[CANCELLED]";
+      const note = `${prefix} ${rawReason}`.slice(0, 480);
+      const previousNotes = String(currentOrder.notes || "").trim();
+      data.notes = previousNotes ? `${previousNotes}\n${note}` : note;
+    }
+  }
+
   return data;
 }
 
@@ -246,8 +278,10 @@ module.exports = {
   ACTIVE_ORDER_STATUSES,
   KITCHEN_ORDER_STATUSES,
   READY_ORDER_STATUSES,
+  CASHIER_VISIBLE_STATUSES,
   TABLE_DB_ORDER_TYPES,
   ROLE_ORDER_STATUS_ACCESS,
+  STATUS_ALIASES,
   buildOrderStatusUpdateData,
   formatOrderCode,
   getAllowedNextStatuses,
@@ -256,6 +290,7 @@ module.exports = {
   mapOrder,
   mapOrderItem,
   mapPayment,
+  normalizeOrderStatus,
   normalizeOrderType,
   normalizeActorRole,
   toApiOrderType

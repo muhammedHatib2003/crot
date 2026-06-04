@@ -425,6 +425,7 @@ router.patch("/orders/:orderId/status", async (req, res, next) => {
 
     const orderId = String(req.params.orderId || "").trim();
     const nextStatus = String(req.body?.status || "").trim().toUpperCase();
+    const cancellationReason = String(req.body?.cancellationReason || req.body?.reason || "").trim();
 
     const order = await runSerializableTransaction(prisma, async (tx) => {
       const existingOrder = await tx.order.findFirst({
@@ -444,7 +445,10 @@ router.patch("/orders/:orderId/status", async (req, res, next) => {
         throw new InventoryError("You are not allowed to set this order status.", 403);
       }
 
-      const updateData = buildOrderStatusUpdateData(nextStatus, existingOrder);
+      const updateData = buildOrderStatusUpdateData(nextStatus, existingOrder, {
+        cancellationReason,
+        cancelledBy: "kitchen"
+      });
       if (nextStatus === "PREPARING") {
         const consumptionResult = await consumeInventoryForOrder(tx, existingOrder);
         if (consumptionResult.inventoryConsumedAt) {

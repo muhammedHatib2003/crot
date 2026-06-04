@@ -6,7 +6,8 @@ const {
   TABLE_DB_ORDER_TYPES,
   buildOrderStatusUpdateData,
   getAllowedNextStatuses,
-  mapOrder
+  mapOrder,
+  normalizeOrderStatus
 } = require("../utils/orders");
 const { mapTable, syncTableStatus } = require("../utils/tables");
 
@@ -390,7 +391,10 @@ async function createOnlineCustomerOrder(payload) {
 async function updateOrderStatus(payload) {
   return runSerializableTransaction(async (tx) => {
     const order = await getOrderOrThrow(tx, payload.restaurantId, payload.orderId);
-    const nextStatus = String(payload.status || "").trim().toUpperCase();
+    const nextStatus = normalizeOrderStatus(payload.status);
+    if (!nextStatus) {
+      throw new PosServiceError("status is required.", 400);
+    }
     const allowedStatuses = getAllowedNextStatuses(payload.actorRole, order.status);
 
     if (!allowedStatuses.includes(nextStatus)) {

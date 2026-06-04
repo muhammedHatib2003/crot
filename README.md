@@ -271,7 +271,64 @@ The project is split into two services in production:
 - Render's free tier filesystem is **ephemeral** — uploads written to `api/uploads/` (currently used only by courier signup documents) will be lost on every redeploy. For production you should move that flow to S3/Cloudinary; the current behaviour is preserved so nothing is silently broken.
 - `docker-compose.yml` is **not** used by Render or Vercel; it stays in the repo only for local development convenience.
 
-## 11) Database Update Notes
+## 11) Desktop application (Electron)
+
+In addition to the web frontend, the project ships an optional Electron shell in
+`desktop/` that packages the existing web UI into a Windows / macOS / Linux
+desktop app. The Vercel + Render deployment paths are **not** affected — Electron
+and electron-builder live in their own package so the web build stays light.
+
+```bash
+# Install desktop dependencies (one time)
+cd desktop
+npm install
+
+# Run in development (uses the existing Vite dev server in ../web)
+npm run dev
+
+# Build a Windows installer (output: desktop/dist/)
+npm run dist:win
+```
+
+You can also run the same things via the proxy scripts from `web/`:
+
+```bash
+cd web
+npm run electron:install
+npm run electron:dev
+npm run electron:build       # -> Windows installer
+```
+
+How it works:
+
+- **Dev**: Electron connects to `http://localhost:5173` (the Vite dev server).
+- **Prod**: `npm run dist` rebuilds the web app with `--base=./` and bundles the
+  output under the installer. At runtime, Electron spawns a tiny in-process HTTP
+  server on `http://localhost:5174` and loads the UI from there, so the renderer
+  has a stable HTTP origin (works with the existing API CORS allowlist) and
+  `BrowserRouter` keeps working.
+- **Router**: `web/src/main.jsx` auto-switches `BrowserRouter` → `HashRouter` when
+  it detects an Electron user agent. Web behaviour is unchanged.
+- **Printing**: `window.print()` (kitchen ticket + customer receipt) works
+  identically inside Electron.
+
+To point the desktop build at your hosted backend, set `VITE_API_URL` before
+building:
+
+```powershell
+$env:VITE_API_URL = "https://your-api.onrender.com"
+cd desktop ; npm run dist:win
+```
+
+And on the API side (Render), add the desktop origin to the CORS allowlist:
+
+```
+CLIENT_ORIGINS=https://your-vercel-app.vercel.app,http://localhost:5174
+```
+
+See `desktop/README.md` for more details.
+
+## 12) Database Update Notes
 
 After pulling these changes:
 

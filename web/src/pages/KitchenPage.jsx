@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest } from "../api";
 import RemoteImage from "../components/RemoteImage";
 import KitchenBoard from "../components/kitchen/KitchenBoard";
+import KitchenTicketPrint from "../components/print/KitchenTicketPrint";
+import { triggerPrint } from "../components/print/printUtils";
 import { normalizeImageUrl } from "../utils/images";
 
 const POLL_INTERVAL_MS = 10000;
@@ -142,6 +144,7 @@ export default function KitchenPage({ session, onLogout }) {
   const [busyOrderId, setBusyOrderId] = useState("");
   const [filterType, setFilterType] = useState("ALL");
   const [loadingMenu, setLoadingMenu] = useState(false);
+  const [printOrder, setPrintOrder] = useState(null);
   const [creatingDish, setCreatingDish] = useState(false);
   const [savingDish, setSavingDish] = useState(false);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
@@ -497,6 +500,28 @@ export default function KitchenPage({ session, onLogout }) {
     }
   }
 
+  function handlePrintOrder(order) {
+    if (!order) {
+      return;
+    }
+    setPrintOrder(order);
+  }
+
+  useEffect(() => {
+    if (!printOrder) {
+      return undefined;
+    }
+
+    triggerPrint();
+
+    function handleAfterPrint() {
+      setPrintOrder(null);
+    }
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, [printOrder]);
+
   async function handleOrderAction(order) {
     setBusyOrderId(order.id);
     setError("");
@@ -517,6 +542,48 @@ export default function KitchenPage({ session, onLogout }) {
         });
       }
 
+      await loadOrders({ silent: true });
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusyOrderId("");
+    }
+  }
+
+  async function handleCancelOrder(order) {
+    if (!order || order.status === "READY") {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${order.orderCode} numaralı siparişi iptal etmek istediğinize emin misiniz?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const reason = window.prompt(
+      "İptal sebebini girin (opsiyonel):",
+      "Stok / hammadde yetersiz"
+    );
+    if (reason === null) {
+      return;
+    }
+
+    setBusyOrderId(order.id);
+    setError("");
+    setMessage("");
+
+    try {
+      await apiRequest(`/kitchen/orders/${order.id}/status`, {
+        method: "PATCH",
+        token: session.token,
+        body: {
+          status: "CANCELLED",
+          cancellationReason: String(reason || "").trim()
+        }
+      });
+      setMessage(`${order.orderCode} numaralı sipariş iptal edildi.`);
       await loadOrders({ silent: true });
     } catch (requestError) {
       setError(requestError.message);
@@ -704,7 +771,9 @@ export default function KitchenPage({ session, onLogout }) {
                   filterType={filterType}
                   groupedOrders={boardOrders}
                   onAction={handleOrderAction}
+                  onCancel={handleCancelOrder}
                   onFilterChange={setFilterType}
+                  onPrint={handlePrintOrder}
                 />
               )}
             </>
@@ -1122,6 +1191,12 @@ export default function KitchenPage({ session, onLogout }) {
           animation: slideDown 0.3s ease-out;
         }
       `}</style>
+
+      <div className="print-area" aria-hidden="true">
+        {printOrder ? (
+          <KitchenTicketPrint order={printOrder} restaurant={{ name: restaurantName }} />
+        ) : null}
+      </div>
     </div>
   );
 }

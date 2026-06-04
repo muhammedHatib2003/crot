@@ -1,9 +1,54 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api";
 import { AppShell, MessageBanner, PageHeader, SectionCard, StatusPill, buttonStyles } from "../components/app/AppShell";
+import KitchenTicketPrint from "../components/print/KitchenTicketPrint";
+import CustomerReceiptPrint from "../components/print/CustomerReceiptPrint";
+import { triggerPrint } from "../components/print/printUtils";
+
+const ONLINE_NEXT_STATUSES = {
+  READY: ["ON_THE_WAY", "COMPLETED", "CANCELLED"],
+  ON_THE_WAY: ["COMPLETED", "CANCELLED"]
+};
+
+const STATUS_LABELS = {
+  READY: "Hazır",
+  ON_THE_WAY: "Kuryeye Verildi",
+  COMPLETED: "Tamamlandı",
+  CANCELLED: "İptal"
+};
+
+const STATUS_BUTTON_LABELS = {
+  ON_THE_WAY: "Kuryeye Verildi",
+  COMPLETED: "Tamamlandı",
+  CANCELLED: "İptal Et",
+  PAID: "Ödendi"
+};
 
 function formatPrice(value) {
   return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function getNextStatusOptions(order) {
+  const current = String(order?.status || "").trim().toUpperCase();
+  const type = String(order?.orderType || "").trim().toUpperCase();
+  const candidates = ONLINE_NEXT_STATUSES[current] || [];
+
+  if (type === "PICKUP") {
+    return candidates.filter((status) => status !== "ON_THE_WAY");
+  }
+  if (type === "DELIVERY") {
+    return candidates;
+  }
+  return candidates.filter((status) => status !== "ON_THE_WAY");
+}
+
+function getStatusTone(status) {
+  const upper = String(status || "").trim().toUpperCase();
+  if (upper === "READY") return "bg-emerald-100 text-emerald-800";
+  if (upper === "ON_THE_WAY") return "bg-sky-100 text-sky-800";
+  if (upper === "COMPLETED") return "bg-slate-200 text-slate-700";
+  if (upper === "CANCELLED" || upper === "REJECTED") return "bg-rose-100 text-rose-700";
+  return "bg-slate-100 text-slate-700";
 }
 
 function getTableTone(table) {
@@ -33,12 +78,43 @@ export default function CashierPage({ session, onLogout }) {
   const [updatingOrderId, setUpdatingOrderId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [printPayload, setPrintPayload] = useState(null);
+
+  const restaurantInfo = useMemo(
+    () => ({
+      name: me?.restaurant?.name || me?.restaurantName || "Restoran",
+      logoUrl: me?.restaurant?.logoUrl || null
+    }),
+    [me?.restaurant?.name, me?.restaurantName, me?.restaurant?.logoUrl]
+  );
+
+  function openPrint(mode, order) {
+    if (!order) {
+      return;
+    }
+    setPrintPayload({ mode, order });
+  }
+
+  useEffect(() => {
+    if (!printPayload) {
+      return undefined;
+    }
+
+    triggerPrint();
+
+    function handleAfterPrint() {
+      setPrintPayload(null);
+    }
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    return () => window.removeEventListener("afterprint", handleAfterPrint);
+  }, [printPayload]);
 
   const readyOrdersByTable = useMemo(() => {
     const groupedOrders = new Map();
 
     orders
-      .filter((order) => order.orderType === "TABLE" && order.tableId)
+      .filter((order) => order.orderType === "TABLE" && order.tableId && order.status === "READY")
       .forEach((order) => {
         const currentOrders = groupedOrders.get(order.tableId) || [];
         groupedOrders.set(order.tableId, [...currentOrders, order]);
@@ -159,7 +235,8 @@ export default function CashierPage({ session, onLogout }) {
         }
       });
 
-      setMessage("Online order updated.");
+      const friendlyStatus = STATUS_LABELS[status] || status;
+      setMessage(`Sipariş durumu güncellendi: ${friendlyStatus}.`);
       await loadQueue();
     } catch (requestError) {
       setError(requestError.message);
@@ -247,42 +324,79 @@ export default function CashierPage({ session, onLogout }) {
               <p className="text-sm text-slate-500">No online orders in cashier queue.</p>
             ) : (
               <div className="space-y-3">
-                {onlineOrders.map((order) => (
-                  <article key={order.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm text-slate-500">{order.orderCode}</p>
-                        <p className="font-semibold text-slate-900">{order.orderType}</p>
-                        <p className="text-sm text-slate-600">
-                          {order.customerName || "Customer"} {order.customerPhone ? `- ${order.customerPhone}` : ""}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-slate-500">{order.status}</p>
-                        <p className="text-lg font-semibold text-slate-900">{formatPrice(order.totalPrice)}</p>
-                      </div>
-                    </div>
+                {onlineOrders.map((order) => {
+                  const nextStatuses = getNextStatusOptions(order);
+                  const deliveryAddress =
+                    order.orderType === "DELIVERY"
+                      ? order.deliveryAddressText || order.customerAddress
+                      : "";
 
-                    <div className="mt-3 space-y-2">
-                      {order.items.map((item) => (
-                        <div key={item.id} className="rounded-xl bg-white px-3 py-2 text-sm text-slate-700">
-                          {item.quantity} x {item.name}
+                  return (
+                    <article key={order.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-slate-500">{order.orderCode}</p>
+                          <p className="font-semibold text-slate-900">{order.orderType}</p>
+                          <p className="text-sm text-slate-600">
+                            {order.customerName || "Customer"} {order.customerPhone ? `- ${order.customerPhone}` : ""}
+                          </p>
+                          {deliveryAddress ? (
+                            <p className="mt-1 text-xs text-slate-500">{deliveryAddress}</p>
+                          ) : null}
                         </div>
-                      ))}
-                    </div>
+                        <div className="text-right">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${getStatusTone(order.status)}`}
+                          >
+                            {STATUS_LABELS[order.status] || order.status}
+                          </span>
+                          <p className="mt-2 text-lg font-semibold text-slate-900">{formatPrice(order.totalPrice)}</p>
+                        </div>
+                      </div>
 
-                    <div className="mt-3">
-                      <button
-                        className={buttonStyles.primary}
-                        disabled={updatingOrderId === order.id}
-                        onClick={() => updateOrderStatus(order.id, "COMPLETED")}
-                        type="button"
-                      >
-                        {updatingOrderId === order.id ? "Updating..." : "Complete online order"}
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                      <div className="mt-3 space-y-2">
+                        {order.items.map((item) => (
+                          <div key={item.id} className="rounded-xl bg-white px-3 py-2 text-sm text-slate-700">
+                            <p className="font-medium text-slate-900">
+                              {item.quantity} x {item.name}
+                            </p>
+                            {item.notes ? <p className="mt-0.5 text-xs text-slate-500">Not: {item.notes}</p> : null}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          className={buttonStyles.secondary}
+                          onClick={() => openPrint("kitchen", order)}
+                          type="button"
+                        >
+                          Mutfak Fişi Yazdır
+                        </button>
+                        <button
+                          className={buttonStyles.secondary}
+                          onClick={() => openPrint("customer", order)}
+                          type="button"
+                        >
+                          Müşteri Fişi Yazdır
+                        </button>
+                        {nextStatuses.map((status) => (
+                          <button
+                            key={status}
+                            className={status === "CANCELLED" ? buttonStyles.secondary : buttonStyles.primary}
+                            disabled={updatingOrderId === order.id}
+                            onClick={() => updateOrderStatus(order.id, status)}
+                            type="button"
+                          >
+                            {updatingOrderId === order.id
+                              ? "Updating..."
+                              : STATUS_BUTTON_LABELS[status] || status}
+                          </button>
+                        ))}
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </SectionCard>
@@ -349,6 +463,23 @@ export default function CashierPage({ session, onLogout }) {
                               </div>
                             ))}
                           </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              className={buttonStyles.secondary}
+                              onClick={() => openPrint("kitchen", order)}
+                              type="button"
+                            >
+                              Mutfak Fişi Yazdır
+                            </button>
+                            <button
+                              className={buttonStyles.secondary}
+                              onClick={() => openPrint("customer", order)}
+                              type="button"
+                            >
+                              Müşteri Fişi Yazdır
+                            </button>
+                          </div>
                         </article>
                       ))}
                     </div>
@@ -388,6 +519,15 @@ export default function CashierPage({ session, onLogout }) {
               </div>
             </div>
           </div>
+        ) : null}
+      </div>
+
+      <div className="print-area" aria-hidden="true">
+        {printPayload?.mode === "kitchen" ? (
+          <KitchenTicketPrint order={printPayload.order} restaurant={restaurantInfo} />
+        ) : null}
+        {printPayload?.mode === "customer" ? (
+          <CustomerReceiptPrint order={printPayload.order} restaurant={restaurantInfo} />
         ) : null}
       </div>
     </AppShell>

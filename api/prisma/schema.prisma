@@ -278,18 +278,28 @@ model Plan {
   displayName   String
   monthlyPrice  Int
   description   String
+  currency      String         @default("TRY")
+  billingPeriod String         @default("monthly")
+  isActive      Boolean        @default(true)
+  features      Json?
+  limits        Json?
   createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
   subscriptions Subscription[]
 }
 
 model Subscription {
-  id           String     @id @default(uuid())
-  restaurantId String     @unique
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  planId       String
-  plan         Plan       @relation(fields: [planId], references: [id], onDelete: Restrict)
-  status       String     @default("ACTIVE")
-  activatedAt  DateTime   @default(now())
+  id                   String     @id @default(uuid())
+  restaurantId         String     @unique
+  restaurant           Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 Plan       @relation(fields: [planId], references: [id], onDelete: Restrict)
+  status               String     @default("ACTIVE")
+  activatedAt          DateTime   @default(now())
+  iyzicoToken          String?
+  iyzicoConversationId String?
+
+  @@index([iyzicoToken])
 }
 
 model DiningTable {
@@ -327,57 +337,57 @@ model MenuItem {
 }
 
 model Order {
-  id                  String          @id @default(uuid())
-  publicId            String?         @default(cuid())
-  orderCode           String          @unique @default(cuid())
-  orderType           OrderType       @default(DINE_IN)
-  source              String          @default("WAITER")
-  status              OrderStatus     @default(PENDING)
-  paymentStatus       PaymentStatus   @default(UNPAID)
-  paymentMethod       PaymentMethod?
-  tableNumber         String?
-  customerUserId      String?
-  customerId            String?
-  customer              Customer?       @relation("CustomerOnlineOrders", fields: [customerId], references: [id], onDelete: SetNull)
+  id                       String          @id @default(uuid())
+  publicId                 String?         @default(cuid())
+  orderCode                String          @unique @default(cuid())
+  orderType                OrderType       @default(DINE_IN)
+  source                   String          @default("WAITER")
+  status                   OrderStatus     @default(PENDING)
+  paymentStatus            PaymentStatus   @default(UNPAID)
+  paymentMethod            PaymentMethod?
+  tableNumber              String?
+  customerUserId           String?
+  customerId               String?
+  customer                 Customer?       @relation("CustomerOnlineOrders", fields: [customerId], references: [id], onDelete: SetNull)
   assignedCourierAccountId String?
   assignedCourierAccount   CourierAccount? @relation("OrderAssignedCourierAccount", fields: [assignedCourierAccountId], references: [id], onDelete: SetNull)
   courierAcceptedAt        DateTime?
-  customerName          String?
-  customerPhone       String?
-  customerAddress     String?
-  deliveryAddressText String?
-  deliveryLatitude    Float?
-  deliveryLongitude   Float?
-  distanceKm          Float?
-  pickupTime          DateTime?
-  note                String?
-  notes               String?
-  subtotalCents       Int             @default(0)
-  deliveryFeeCents    Int             @default(0)
-  totalCents          Int
-  subtotal            Float           @default(0)
-  deliveryFee         Float           @default(0)
-  total               Float           @default(0)
-  restaurantId        String
-  restaurant          Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  tableId             String?
-  table               DiningTable?    @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  paymentId           String?
-  payment             Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  orderPayment        OrderPayment?
-  items               OrderItem[]
-  kitchenOrder        KitchenOrder?
-  stockMovements      StockMovement[]
-  acceptedAt          DateTime?
-  preparingAt         DateTime?
-  readyAt             DateTime?
-  kitchenCompletedAt  DateTime?
-  waiterSeenAt        DateTime?
-  completedAt         DateTime?
-  cancelledAt         DateTime?
-  inventoryConsumedAt DateTime?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @default(now()) @updatedAt
+  customerName             String?
+  customerPhone            String?
+  customerAddress          String?
+  deliveryAddressText      String?
+  deliveryLatitude         Float?
+  deliveryLongitude        Float?
+  distanceKm               Float?
+  pickupTime               DateTime?
+  note                     String?
+  notes                    String?
+  subtotalCents            Int             @default(0)
+  deliveryFeeCents         Int             @default(0)
+  totalCents               Int
+  subtotal                 Float           @default(0)
+  deliveryFee              Float           @default(0)
+  total                    Float           @default(0)
+  restaurantId             String
+  restaurant               Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tableId                  String?
+  table                    DiningTable?    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  paymentId                String?
+  payment                  Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  orderPayment             OrderPayment?
+  items                    OrderItem[]
+  kitchenOrder             KitchenOrder?
+  stockMovements           StockMovement[]
+  acceptedAt               DateTime?
+  preparingAt              DateTime?
+  readyAt                  DateTime?
+  kitchenCompletedAt       DateTime?
+  waiterSeenAt             DateTime?
+  completedAt              DateTime?
+  cancelledAt              DateTime?
+  inventoryConsumedAt      DateTime?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @default(now()) @updatedAt
 
   @@index([restaurantId, status])
   @@index([restaurantId, orderType, status])

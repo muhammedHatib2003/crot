@@ -19,7 +19,7 @@ const TONE_STYLES = {
   }
 };
 
-export default function OrderCard({ order, busy, onAction }) {
+export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) {
   const tone = TONE_STYLES[order.status] || TONE_STYLES.PENDING;
   const totalItems = order.items.reduce((total, item) => total + (Number(item.quantity) || 0), 0);
 
@@ -84,17 +84,38 @@ export default function OrderCard({ order, busy, onAction }) {
         ))}
       </div>
 
-      <button
-        className={[
-          "mt-4 flex min-h-[52px] w-full items-center justify-center rounded-xl px-4 text-base font-black uppercase tracking-[0.1em] transition sm:mt-5 sm:min-h-[60px] sm:rounded-2xl sm:text-lg sm:tracking-[0.12em]",
-          busy ? "cursor-wait bg-slate-200 text-slate-500" : tone.button
-        ].join(" ")}
-        disabled={busy}
-        onClick={() => onAction(order)}
-        type="button"
-      >
-        {busy ? "Working..." : order.actionLabel}
-      </button>
+      <div className="mt-4 flex flex-col gap-2 sm:mt-5">
+        <button
+          className={[
+            "flex min-h-[52px] w-full items-center justify-center rounded-xl px-4 text-base font-black uppercase tracking-[0.1em] transition sm:min-h-[60px] sm:rounded-2xl sm:text-lg sm:tracking-[0.12em]",
+            busy ? "cursor-wait bg-slate-200 text-slate-500" : tone.button
+          ].join(" ")}
+          disabled={busy}
+          onClick={() => onAction(order)}
+          type="button"
+        >
+          {busy ? "Working..." : order.actionLabel}
+        </button>
+        {onPrint ? (
+          <button
+            className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 sm:rounded-2xl"
+            onClick={() => onPrint(order)}
+            type="button"
+          >
+            Mutfak Fişi Yazdır
+          </button>
+        ) : null}
+        {onCancel && order.status !== "READY" ? (
+          <button
+            className="flex min-h-[44px] w-full items-center justify-center rounded-xl border border-rose-200 bg-white px-4 text-sm font-bold uppercase tracking-[0.14em] text-rose-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl"
+            disabled={busy}
+            onClick={() => onCancel(order)}
+            type="button"
+          >
+            Siparişi İptal Et
+          </button>
+        ) : null}
+      </div>
     </article>
   );
 }
