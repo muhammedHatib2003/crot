@@ -8,7 +8,7 @@ const {
   mapOrder,
   mapPayment
 } = require("../utils/orders");
-const { PosServiceError, listRoleOrders, updateOrderStatus } = require("../services/pos.service");
+const { PosServiceError, listRoleOrders, orderInclude, updateOrderStatus } = require("../services/pos.service");
 const { syncTableStatus } = require("../utils/tables");
 
 const router = express.Router();
@@ -106,6 +106,84 @@ router.get("/tables", async (req, res, next) => {
 
     return res.json({
       tables: tables.map(mapCashierTable)
+    });
+  } catch (error) {
+    return handleServiceError(res, error, next);
+  }
+});
+
+router.post("/orders/:orderId/checkout", async (req, res, next) => {
+  try {
+    const { employee, error } = await requireCashier(req, res);
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    const orderId = String(req.params.orderId || "").trim();
+    const normalizedPaymentMethod = String(req.body?.paymentMethod || "").trim().toUpperCase();
+
+    if (!ALLOWED_PAYMENT_METHODS.has(normalizedPaymentMethod)) {
+      return res.status(400).json({ message: "paymentMethod must be CASH or CARD." });
+    }
+
+    const order = await prisma.order.findFirst({
+      where: {
+        id: orderId,
+        restaurantId: employee.restaurantId
+      },
+      include: orderInclude
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    if (order.orderType !== "PICKUP" && order.orderType !== "DELIVERY") {
+      return res.status(400).json({ message: "Only pickup or delivery orders can be paid from this action." });
+    }
+
+    if (order.status !== "READY") {
+      return res.status(409).json({ message: "Only ready orders can be checked out." });
+    }
+
+    const completedAt = new Date();
+
+    const checkoutResult = await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          paymentMethod: normalizedPaymentMethod,
+          totalCents: order.totalCents,
+          restaurantId: employee.restaurantId
+        }
+      });
+
+      const updatedOrder = await tx.order.update({
+        where: {
+          id: order.id
+        },
+        data: {
+          status: "COMPLETED",
+          paymentStatus: "PAID",
+          paymentMethod: normalizedPaymentMethod,
+          paymentId: payment.id,
+          completedAt
+        },
+        include: orderInclude
+      });
+
+      return {
+        payment,
+        order: updatedOrder
+      };
+    });
+
+    return res.json({
+      message: "Pickup payment completed.",
+      payment: mapPayment({
+        ...checkoutResult.payment,
+        orders: [checkoutResult.order]
+      }),
+      order: mapOrder(checkoutResult.order)
     });
   } catch (error) {
     return handleServiceError(res, error, next);

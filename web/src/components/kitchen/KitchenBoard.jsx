@@ -47,7 +47,7 @@ export default function KitchenBoard({ groupedOrders, busyOrderId, filterType, o
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 2xl:grid-cols-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 md:gap-4">
         {BOARD_COLUMNS.map((column) => (
           <OrderColumn
             key={column.key}

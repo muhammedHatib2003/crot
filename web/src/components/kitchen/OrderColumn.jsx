@@ -27,7 +27,7 @@ export default function OrderColumn({ title, status, orders, busyOrderId, onActi
 
   return (
     <section
-      className={`flex min-h-[70vh] min-w-0 flex-col rounded-[24px] border p-3 sm:p-4 ${style.shell}`}
+      className={`flex min-h-[42vh] min-w-0 flex-col rounded-2xl border p-3 md:min-h-[52vh] lg:min-h-[68vh] lg:rounded-[24px] lg:p-4 ${style.shell}`}
     >
       <div className="flex items-center justify-between gap-3 border-b border-white/60 px-2 pb-3">
         <div>

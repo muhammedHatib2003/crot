@@ -70,8 +70,8 @@ export default function NotificationCenter({ className = "" }) {
           <path d="M10 20a2 2 0 0 0 4 0" />
         </svg>
         {unreadCount > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
-            {unreadCount > 99 ? "99+" : unreadCount}
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-700 px-1 text-[9px] font-semibold text-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         ) : null}
       </button>
@@ -93,11 +93,10 @@ export default function NotificationCenter({ className = "" }) {
             </div>
           </div>
 
-          {permission !== "granted" ? (
-            <div className="border-b border-slate-100 px-4 py-3">
-              <p className="text-xs text-slate-600">Enable browser alerts for new orders on this device.</p>
-              <button className={`${buttonStyles.secondary} mt-2`} onClick={requestBrowserPermission} type="button">
-                Enable notifications
+          {permission !== "granted" && permission !== "denied" ? (
+            <div className="border-b border-slate-100 px-4 py-2">
+              <button className={`${buttonStyles.subtle} w-full text-xs`} onClick={requestBrowserPermission} type="button">
+                Enable pop-up alerts
               </button>
             </div>
           ) : null}

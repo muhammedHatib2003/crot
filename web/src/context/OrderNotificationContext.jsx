@@ -8,7 +8,17 @@ import { playNotificationSound, unlockNotificationAudio } from "../utils/notific
 
 const OrderNotificationContext = createContext(null);
 
-function showBrowserNotification(entry) {
+function formatNotificationBody(entry) {
+  return [
+    entry.orderCode ? `#${entry.orderCode}` : null,
+    entry.tableName ? entry.tableName : null,
+    entry.customerName ? entry.customerName : null
+  ]
+    .filter(Boolean)
+    .join(" • ");
+}
+
+function showBrowserNotification(entry, options = {}) {
   if (typeof window === "undefined" || !("Notification" in window)) {
     return;
   }
@@ -17,20 +27,11 @@ function showBrowserNotification(entry) {
     return;
   }
 
-  const title = entry.message;
-  const body = [
-    entry.orderCode ? `#${entry.orderCode}` : null,
-    entry.tableName ? `Table ${entry.tableName}` : null,
-    entry.customerName ? entry.customerName : null
-  ]
-    .filter(Boolean)
-    .join(" • ");
-
   try {
-    const notification = new Notification(title, {
-      body,
-      tag: entry.id,
-      renotify: true
+    const notification = new Notification(entry.message, {
+      body: formatNotificationBody(entry),
+      tag: options.tag || `order-${entry.orderId}-${entry.type}`,
+      renotify: Boolean(options.renotify)
     });
 
     notification.onclick = () => {
@@ -74,18 +75,33 @@ export function OrderNotificationProvider({ children, session }) {
     return result;
   }, []);
 
-  const pushNotification = useCallback(
-    (order, type, panel = "staff") => {
-      const entry = createNotificationEntry({ order, type, panel });
-      if (!entry) {
-        return;
-      }
+  const pushNotification = useCallback((order, type, panel = "staff") => {
+    const entry = createNotificationEntry({ order, type, panel });
+    if (!entry) {
+      return;
+    }
 
-      setNotifications((previous) => [entry, ...previous].slice(0, 80));
-      showBrowserNotification(entry);
-    },
-    []
-  );
+    setNotifications((previous) => [entry, ...previous].slice(0, 30));
+    showBrowserNotification(entry);
+  }, []);
+
+  const showOrderReminderPopup = useCallback((order) => {
+    if (!order?.id) {
+      return;
+    }
+
+    showBrowserNotification(
+      {
+        orderId: order.id,
+        message: "Order waiting",
+        orderCode: order.orderCode || order.id,
+        tableName: order.table?.name || null,
+        customerName: order.customerName || null,
+        type: "NEW_ORDER"
+      },
+      { tag: `order-reminder-${order.id}`, renotify: true }
+    );
+  }, []);
 
   const acknowledgeOrder = useCallback(
     (orderId) => {
@@ -128,6 +144,7 @@ export function OrderNotificationProvider({ children, session }) {
       permission,
       requestBrowserPermission,
       pushNotification,
+      showOrderReminderPopup,
       acknowledgeOrder,
       markAllRead,
       clearNotifications,
@@ -141,6 +158,7 @@ export function OrderNotificationProvider({ children, session }) {
       permission,
       requestBrowserPermission,
       pushNotification,
+      showOrderReminderPopup,
       acknowledgeOrder,
       markAllRead,
       clearNotifications,

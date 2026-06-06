@@ -640,9 +640,17 @@ export default function KitchenPage({ session, onLogout }) {
   ];
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-emerald-50 via-teal-50/60 to-slate-100">
-      {/* Sidebar */}
-      <aside className="w-72 border-r border-slate-200/70 bg-white/85 backdrop-blur flex flex-col shadow-[0_14px_34px_rgba(2,8,23,0.08)]">
+    <div className="flex h-[100dvh] flex-col bg-gradient-to-br from-emerald-50 via-teal-50/60 to-slate-100 lg:flex-row">
+      <header className="flex items-center justify-between gap-3 border-b border-slate-200/70 bg-white/90 px-4 py-3 shadow-sm backdrop-blur lg:hidden">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Kitchen KDS</p>
+          <p className="text-sm font-bold text-slate-900">{restaurantName}</p>
+        </div>
+        <p className="text-lg font-semibold tabular-nums text-slate-900">{formatLiveClock(now)}</p>
+      </header>
+
+      {/* Sidebar — desktop only */}
+      <aside className="hidden w-72 flex-col border-r border-slate-200/70 bg-white/85 shadow-[0_14px_34px_rgba(2,8,23,0.08)] backdrop-blur lg:flex">
         <div className="p-6 border-b border-slate-200/70">
           <h1 className="text-xl font-bold text-slate-950 tracking-tight">Kitchen KDS</h1>
           <p className="text-sm text-slate-600 mt-1">{restaurantName}</p>
@@ -692,47 +700,32 @@ export default function KitchenPage({ session, onLogout }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8">
-          {/* Header */}
-          <div className="mb-6">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden pb-20 lg:pb-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 md:p-5 lg:p-8">
+          <div className="mb-4 hidden lg:block">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {tabs.find(t => t.id === activeTab)?.label}
-                </h2>
-                <p className="text-sm text-slate-500 mt-1">
+                <h2 className="text-2xl font-bold text-slate-900">{tabs.find((t) => t.id === activeTab)?.label}</h2>
+                <p className="mt-1 text-sm text-slate-500">
                   {activeTab === "orders" && "Real-time order management and preparation tracking"}
                   {activeTab === "menu" && "Manage dishes, recipes, and menu items"}
                 </p>
               </div>
-              {activeTab === "orders" && (
-                <div className="flex gap-2">
-                  <select
-                    className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                  >
-                    <option value="ALL">All Orders</option>
-                    <option value="TABLE">Dine In</option>
-                    <option value="DELIVERY">Delivery</option>
-                    <option value="PICKUP">Pickup</option>
-                  </select>
-                  <button
-                    className="px-4 py-2 text-sm bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all"
-                    disabled={refreshing}
-                    onClick={() => loadOrders({ manual: true })}
-                  >
-                    {refreshing ? "Refreshing..." : "Refresh"}
-                  </button>
-                </div>
-              )}
+              {activeTab === "orders" ? (
+                <button
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+                  disabled={refreshing}
+                  onClick={() => loadOrders({ manual: true })}
+                  type="button"
+                >
+                  {refreshing ? "Refreshing..." : "Refresh"}
+                </button>
+              ) : null}
             </div>
           </div>
 
-          {/* Stats Cards - Only for orders tab */}
           {activeTab === "orders" && (
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="mb-4 grid grid-cols-2 gap-3 md:gap-4 lg:mb-6">
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p className="text-sm text-amber-700 font-medium">Pending Orders</p>
                 <p className="text-3xl font-bold text-amber-900 mt-1">{counters.pending}</p>
@@ -760,7 +753,7 @@ export default function KitchenPage({ session, onLogout }) {
           {activeTab === "orders" && (
             <>
               {loading ? (
-                <div className="flex items-center justify-center py-20">
+                <div className="flex items-center justify-center py-12 md:py-20">
                   <div className="text-center">
                     <svg className="animate-spin h-8 w-8 text-slate-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -1158,6 +1151,44 @@ export default function KitchenPage({ session, onLogout }) {
           )}
         </div>
       </main>
+
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-slate-200 bg-white/95 px-2 py-2 shadow-[0_-8px_24px_rgba(2,8,23,0.08)] backdrop-blur lg:hidden">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`flex min-h-[52px] flex-1 flex-col items-center justify-center rounded-xl px-2 text-xs font-semibold transition ${
+              activeTab === tab.id ? "bg-emerald-50 text-brand-900 ring-1 ring-emerald-200" : "text-slate-600"
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+            type="button"
+          >
+            <span className="text-lg">{tab.icon}</span>
+            <span>{tab.label}</span>
+            {tab.badge > 0 ? (
+              <span className="mt-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                {tab.badge}
+              </span>
+            ) : null}
+          </button>
+        ))}
+        <button
+          className="flex min-h-[52px] min-w-[72px] flex-col items-center justify-center rounded-xl px-2 text-xs font-semibold text-slate-600"
+          disabled={refreshing || loadingMenu}
+          onClick={() => (activeTab === "orders" ? loadOrders({ manual: true }) : loadMenu())}
+          type="button"
+        >
+          <span className="text-lg">↻</span>
+          <span>{refreshing || loadingMenu ? "..." : "Refresh"}</span>
+        </button>
+        <button
+          className="flex min-h-[52px] min-w-[72px] flex-col items-center justify-center rounded-xl px-2 text-xs font-semibold text-rose-700"
+          onClick={onLogout}
+          type="button"
+        >
+          <span className="text-lg">⎋</span>
+          <span>Logout</span>
+        </button>
+      </nav>
 
       <style jsx>{`
         @keyframes slideDown {

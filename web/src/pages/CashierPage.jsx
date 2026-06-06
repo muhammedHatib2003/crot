@@ -78,6 +78,7 @@ export default function CashierPage({ session, onLogout }) {
   const [refreshing, setRefreshing] = useState(false);
   const [checkingOutTableId, setCheckingOutTableId] = useState("");
   const [updatingOrderId, setUpdatingOrderId] = useState("");
+  const [payingOrderId, setPayingOrderId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [printPayload, setPrintPayload] = useState(null);
@@ -236,6 +237,27 @@ export default function CashierPage({ session, onLogout }) {
       setError(requestError.message);
     } finally {
       setCheckingOutTableId("");
+    }
+  }
+
+  async function checkoutPickupOrder(orderId, paymentMethod) {
+    setPayingOrderId(orderId);
+    setError("");
+    setMessage("");
+
+    try {
+      const result = await apiRequest(`/cashier/orders/${orderId}/checkout`, {
+        method: "POST",
+        token: session.token,
+        body: { paymentMethod }
+      });
+
+      setMessage(result.message || `Pickup payment completed (${paymentMethod}).`);
+      await loadQueue();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setPayingOrderId("");
     }
   }
 
@@ -400,6 +422,26 @@ export default function CashierPage({ session, onLogout }) {
                         >
                           Müşteri Fişi Yazdır
                         </button>
+                        {order.orderType === "PICKUP" && order.status === "READY" ? (
+                          <>
+                            <button
+                              className={buttonStyles.primary}
+                              disabled={payingOrderId === order.id}
+                              onClick={() => checkoutPickupOrder(order.id, "CASH")}
+                              type="button"
+                            >
+                              {payingOrderId === order.id ? "Processing..." : "Nakit Öde"}
+                            </button>
+                            <button
+                              className={buttonStyles.primary}
+                              disabled={payingOrderId === order.id}
+                              onClick={() => checkoutPickupOrder(order.id, "CARD")}
+                              type="button"
+                            >
+                              {payingOrderId === order.id ? "Processing..." : "Kart Öde"}
+                            </button>
+                          </>
+                        ) : null}
                         {nextStatuses.map((status) => (
                           <button
                             key={status}

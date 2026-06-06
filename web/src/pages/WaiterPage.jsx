@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api";
+import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 import { AppShell, MessageBanner, PageHeader, SectionCard, StatusPill, buttonStyles } from "../components/app/AppShell";
 
 function formatPrice(value) {
@@ -185,6 +186,21 @@ export default function WaiterPage({ session, onLogout }) {
 
     bootstrap();
   }, [session.token]);
+
+  useEffect(() => {
+    if (loading) {
+      return undefined;
+    }
+
+    const refreshTables = () => loadData();
+    const poller = window.setInterval(refreshTables, FAST_POLL_MS);
+    const unbindVisibility = bindVisibilityRefresh(refreshTables);
+
+    return () => {
+      window.clearInterval(poller);
+      unbindVisibility();
+    };
+  }, [loading, session.token]);
 
   useEffect(() => {
     if (!openTableId) {

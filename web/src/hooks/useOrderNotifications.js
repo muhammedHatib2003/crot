@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useOrderNotificationContext } from "../context/OrderNotificationContext";
 
-const REPEAT_MS = 30000;
+const REMINDER_MS = 120000;
+const MAX_REMINDERS_PER_ORDER = 2;
 
 function buildSnapshot(orders) {
   const snapshot = new Map();
@@ -26,6 +27,7 @@ export default function useOrderNotifications(orders, options = {}) {
   const {
     acknowledgedOrderIds,
     pushNotification,
+    showOrderReminderPopup,
     acknowledgeOrder,
     playSound,
     requestBrowserPermission
@@ -33,6 +35,7 @@ export default function useOrderNotifications(orders, options = {}) {
 
   const previousSnapshotRef = useRef(new Map());
   const playedEventsRef = useRef(new Set());
+  const reminderCountsRef = useRef(new Map());
   const initializedRef = useRef(false);
   const ordersRef = useRef(orders);
 
@@ -82,7 +85,6 @@ export default function useOrderNotifications(orders, options = {}) {
         if (!playedEventsRef.current.has(eventKey)) {
           playedEventsRef.current.add(eventKey);
           pushNotification(order, "ORDER_READY", panel);
-          playSound("ORDER_READY");
         }
       }
 
@@ -92,7 +94,6 @@ export default function useOrderNotifications(orders, options = {}) {
           playedEventsRef.current.add(eventKey);
           acknowledgeOrder(orderId);
           pushNotification(order, "ORDER_CANCELLED", panel);
-          playSound("ORDER_CANCELLED");
         }
       }
     });
@@ -122,12 +123,18 @@ export default function useOrderNotifications(orders, options = {}) {
           return;
         }
 
-        playSound("NEW_ORDER");
+        const reminders = reminderCountsRef.current.get(order.id) || 0;
+        if (reminders >= MAX_REMINDERS_PER_ORDER) {
+          return;
+        }
+
+        reminderCountsRef.current.set(order.id, reminders + 1);
+        showOrderReminderPopup(order);
       });
-    }, REPEAT_MS);
+    }, REMINDER_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [enabled, acknowledgedOrderIds, playSound]);
+  }, [enabled, acknowledgedOrderIds, showOrderReminderPopup]);
 
   return {
     acknowledgeOrder

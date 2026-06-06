@@ -235,18 +235,22 @@ export default function PickupOrderPage() {
     setSubmitting(true);
 
     try {
-      const result = await apiRequestWithPathFallback(ordersPathCandidates, {
-        method: "POST",
-        body: {
-          customerName: customerName.trim(),
-          customerPhone: customerPhone.trim(),
-          notes: notes.trim(),
-          items: cartItems.map((item) => ({
-            menuItemId: item.id,
-            quantity: item.quantity
-          }))
-        }
-      });
+      const result = await apiRequestWithPathFallback(
+        ordersPathCandidates,
+        {
+          method: "POST",
+          body: {
+            customerName: customerName.trim(),
+            customerPhone: customerPhone.trim(),
+            notes: notes.trim(),
+            items: cartItems.map((item) => ({
+              menuItemId: item.id,
+              quantity: item.quantity
+            }))
+          }
+        },
+        apiRequest
+      );
 
       setActiveOrder(result.order);
       persistOrderId(result.order?.publicId);

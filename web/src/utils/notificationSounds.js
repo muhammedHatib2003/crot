@@ -1,5 +1,8 @@
 let audioContext = null;
 let unlocked = false;
+let lastPlayedAt = 0;
+
+const MIN_SOUND_GAP_MS = 10000;
 
 function getAudioContext() {
   if (typeof window === "undefined") {
@@ -32,7 +35,7 @@ export async function unlockNotificationAudio() {
   return unlocked;
 }
 
-function playTone(context, { frequency, duration, gain = 0.55, type = "square", delay = 0 }) {
+function playTone(context, { frequency, duration, gain = 0.2, type = "sine", delay = 0 }) {
   const oscillator = context.createOscillator();
   const gainNode = context.createGain();
   const startAt = context.currentTime + delay;
@@ -40,7 +43,7 @@ function playTone(context, { frequency, duration, gain = 0.55, type = "square", 
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(frequency, startAt);
   gainNode.gain.setValueAtTime(0.0001, startAt);
-  gainNode.gain.exponentialRampToValueAtTime(gain, startAt + 0.02);
+  gainNode.gain.exponentialRampToValueAtTime(gain, startAt + 0.03);
   gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
 
   oscillator.connect(gainNode);
@@ -49,7 +52,17 @@ function playTone(context, { frequency, duration, gain = 0.55, type = "square", 
   oscillator.stop(startAt + duration + 0.02);
 }
 
-export async function playNotificationSound(type) {
+function canPlaySound(force = false) {
+  const now = Date.now();
+  if (!force && now - lastPlayedAt < MIN_SOUND_GAP_MS) {
+    return false;
+  }
+
+  lastPlayedAt = now;
+  return true;
+}
+
+export async function playNotificationSound(type, options = {}) {
   const context = getAudioContext();
   if (!context) {
     return;
@@ -57,23 +70,31 @@ export async function playNotificationSound(type) {
 
   await unlockNotificationAudio();
 
+  if (type === "REMINDER") {
+    if (!canPlaySound()) {
+      return;
+    }
+    playTone(context, { frequency: 740, duration: 0.1, gain: 0.14, type: "sine" });
+    return;
+  }
+
+  if (!canPlaySound(options.force)) {
+    return;
+  }
+
   if (type === "NEW_ORDER") {
-    playTone(context, { frequency: 880, duration: 0.16, gain: 0.7, delay: 0 });
-    playTone(context, { frequency: 1175, duration: 0.16, gain: 0.7, delay: 0.2 });
-    playTone(context, { frequency: 1480, duration: 0.22, gain: 0.75, delay: 0.4 });
+    playTone(context, { frequency: 784, duration: 0.12, gain: 0.22, type: "sine" });
+    playTone(context, { frequency: 988, duration: 0.14, gain: 0.2, type: "sine", delay: 0.13 });
     return;
   }
 
   if (type === "ORDER_READY") {
-    playTone(context, { frequency: 620, duration: 0.12, gain: 0.55, delay: 0 });
-    playTone(context, { frequency: 930, duration: 0.18, gain: 0.6, delay: 0.14 });
-    playTone(context, { frequency: 1240, duration: 0.24, gain: 0.65, delay: 0.3 });
+    playTone(context, { frequency: 659, duration: 0.16, gain: 0.18, type: "sine" });
     return;
   }
 
   if (type === "ORDER_CANCELLED") {
-    playTone(context, { frequency: 220, duration: 0.35, gain: 0.65, type: "sawtooth", delay: 0 });
-    playTone(context, { frequency: 165, duration: 0.4, gain: 0.6, type: "sawtooth", delay: 0.22 });
+    playTone(context, { frequency: 330, duration: 0.18, gain: 0.16, type: "sine" });
   }
 }
 
