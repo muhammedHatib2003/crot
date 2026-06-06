@@ -11,6 +11,7 @@ import {
   getPickupOrderPathCandidates,
   getPickupOrdersPathCandidates
 } from "../utils/pickupApi";
+import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
 const TERMINAL_STATUSES = new Set(["PAID", "COMPLETED", "CANCELLED", "REJECTED"]);
 
@@ -206,11 +207,14 @@ export default function PickupOrderPage() {
       return undefined;
     }
 
-    const intervalId = setInterval(() => {
-      loadOrder(activeOrder.publicId, { silent: true });
-    }, 10000);
+    const refreshOrder = () => loadOrder(activeOrder.publicId, { silent: true });
+    const intervalId = setInterval(refreshOrder, FAST_POLL_MS);
+    const unbindVisibility = bindVisibilityRefresh(refreshOrder);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      unbindVisibility();
+    };
   }, [activeOrder?.publicId, activeOrder?.status, tenantSlug]);
 
   async function handleSubmit(event) {
@@ -250,6 +254,9 @@ export default function PickupOrderPage() {
       setCart({});
       setNotes("");
       await loadMenu();
+      window.requestAnimationFrame(() => {
+        document.getElementById("order-status-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch (requestError) {
       setSubmitError(requestError.message);
     } finally {
@@ -309,12 +316,22 @@ export default function PickupOrderPage() {
         <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{submitError}</div>
       ) : null}
 
+      {activeOrder && !TERMINAL_STATUSES.has(activeOrder.status) ? (
+        <div className="mb-4 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
+          <p className="font-semibold">Siparişiniz canlı takip ediliyor</p>
+          <p className="mt-1 text-brand-800">
+            Durum ekranı aşağıda ve sağdaki panelde görünür. Sayfa her {FAST_POLL_MS / 1000} saniyede otomatik güncellenir.
+          </p>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <section className="space-y-6">
           {activeOrder ? (
             <div className="xl:hidden">
               <PickupOrderStatusPanel
                 order={activeOrder}
+                refreshSeconds={FAST_POLL_MS / 1000}
                 refreshing={orderRefreshing}
                 onNewOrder={clearStoredOrder}
                 onRefresh={() => loadOrder(activeOrder.publicId)}
@@ -438,6 +455,7 @@ export default function PickupOrderPage() {
             <div className="hidden xl:block">
               <PickupOrderStatusPanel
                 order={activeOrder}
+                refreshSeconds={FAST_POLL_MS / 1000}
                 refreshing={orderRefreshing}
                 onNewOrder={clearStoredOrder}
                 onRefresh={() => loadOrder(activeOrder.publicId)}

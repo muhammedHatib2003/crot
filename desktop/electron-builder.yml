@@ -26,6 +26,10 @@ asar: true
 compression: normal
 
 win:
+  # rcedit often fails on Windows with "Unable to commit changes" when AV/OneDrive
+  # locks the .exe during metadata editing — skip that step for local builds.
+  signAndEditExecutable: false
+  executableName: RestaurantPOS
   target:
     - target: nsis
       arch:

@@ -43,6 +43,9 @@ function buildAvailabilityText(reason, availableStock, options = {}) {
   if (reason === "OUT_OF_STOCK") {
     return "Out of stock";
   }
+  if (options.unlimited) {
+    return "Available";
+  }
   if (options.recipeLimited) {
     return `Ingredient limited: ${availableStock} left`;
   }
@@ -50,10 +53,10 @@ function buildAvailabilityText(reason, availableStock, options = {}) {
   return `${availableStock} left`;
 }
 
+const UNLIMITED_SERVING_CAPACITY = 9999;
+
 function getMenuItemAvailability(item, options = {}) {
   const previousQuantity = Math.max(0, Number(options.previousQuantity || 0));
-  const stock = Math.max(0, toNumber(item?.stock));
-  const stockWithReservation = stock + previousQuantity;
   const hasRecipe = Boolean(item?.recipe);
   const recipeApprovalStatus = String(item?.recipe?.approvalStatus || "").trim().toUpperCase() || null;
   const recipeIngredients = Array.isArray(item?.recipe?.ingredients) ? item.recipe.ingredients : null;
@@ -88,19 +91,20 @@ function getMenuItemAvailability(item, options = {}) {
     }
   }
 
-  const availableStock = floorQuantity(
-    ingredientCapacity === null ? stockWithReservation : Math.min(stockWithReservation, ingredientCapacity)
-  );
-  const recipeLimited = ingredientCapacity !== null && ingredientCapacity < stockWithReservation;
+  const ingredientLimited = ingredientCapacity !== null;
+  const availableStock = ingredientLimited
+    ? floorQuantity(ingredientCapacity + previousQuantity)
+    : item?.isAvailable
+      ? UNLIMITED_SERVING_CAPACITY
+      : 0;
+  const recipeLimited = ingredientLimited && ingredientCapacity + previousQuantity < UNLIMITED_SERVING_CAPACITY;
 
   let availabilityReason = null;
   if (!item?.isAvailable) {
     availabilityReason = "HIDDEN";
   } else if (hasRecipe && recipeIngredients && recipeIngredients.length === 0) {
     availabilityReason = "RECIPE_INCOMPLETE";
-  } else if (stockWithReservation <= 0) {
-    availabilityReason = "OUT_OF_STOCK";
-  } else if (ingredientCapacity !== null && ingredientCapacity <= 0) {
+  } else if (ingredientCapacity !== null && ingredientCapacity + previousQuantity <= 0) {
     availabilityReason = "INSUFFICIENT_INGREDIENTS";
   } else if (availableStock <= 0) {
     availabilityReason = "OUT_OF_STOCK";
@@ -111,12 +115,14 @@ function getMenuItemAvailability(item, options = {}) {
     recipeIngredientCount: recipeIngredients?.length || 0,
     ingredientCapacity,
     ingredientShortages,
-    stockWithReservation,
     availableStock,
     recipeLimited,
     recipeApprovalStatus,
     availabilityReason,
-    availabilityText: buildAvailabilityText(availabilityReason, availableStock, { recipeLimited }),
+    availabilityText: buildAvailabilityText(availabilityReason, availableStock, {
+      recipeLimited,
+      unlimited: !ingredientLimited && Boolean(item?.isAvailable)
+    }),
     isOrderable: !availabilityReason && availableStock > 0
   };
 }
@@ -222,7 +228,10 @@ async function buildOrderDraft(client, restaurantId, rawItems) {
       return { error: { status: 400, message: "One or more selected products are unavailable." } };
     }
 
-    if (availability.availableStock < item.quantity) {
+    if (
+      availability.ingredientCapacity !== null &&
+      availability.availableStock < item.quantity
+    ) {
       return {
         error: {
           status: 409,

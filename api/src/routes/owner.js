@@ -563,7 +563,7 @@ router.post("/menu", async (req, res, next) => {
 router.patch("/menu/:itemId", async (req, res, next) => {
   try {
     const { itemId } = req.params;
-    const { name, category, description, photoUrl, price, isAvailable, stock } = req.body;
+    const { name, category, description, photoUrl, price, isAvailable } = req.body;
 
     if (!req.auth.restaurantId) {
       return res.status(400).json({ message: "Owner has no restaurant assigned." });
@@ -613,14 +613,6 @@ router.patch("/menu/:itemId", async (req, res, next) => {
         return res.status(400).json({ message: "price must be greater than 0." });
       }
       data.priceCents = priceCents;
-    }
-
-    if (stock !== undefined) {
-      const parsedStock = parseStock(stock);
-      if (parsedStock.error) {
-        return res.status(400).json({ message: parsedStock.error });
-      }
-      data.stock = parsedStock.value;
     }
 
     if (isAvailable !== undefined) {

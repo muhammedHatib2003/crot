@@ -180,22 +180,18 @@ router.post("/menu", async (req, res, next) => {
       return res.status(error.status).json({ message: error.message });
     }
 
-    const { name, category, description, photoUrl, price, stock } = req.body;
+    const { name, category, description, photoUrl, price } = req.body;
     const normalizedName = String(name || "").trim();
     const normalizedCategory = String(category || "General").trim() || "General";
     const normalizedDescription = String(description || "").trim();
     const normalizedPhotoUrl = String(photoUrl || "").trim();
     const priceCents = parsePriceToCents(price);
-    const parsedStock = parseStock(stock);
 
     if (!normalizedName) {
       return res.status(400).json({ message: "name is required." });
     }
     if (priceCents === null) {
       return res.status(400).json({ message: "price must be greater than 0." });
-    }
-    if (parsedStock.error) {
-      return res.status(400).json({ message: parsedStock.error });
     }
 
     const item = await prisma.menuItem.create({
@@ -205,7 +201,6 @@ router.post("/menu", async (req, res, next) => {
         description: normalizedDescription || null,
         photoUrl: normalizedPhotoUrl || null,
         priceCents,
-        stock: parsedStock.value,
         restaurantId: employee.restaurantId
       },
       include: MENU_ITEM_AVAILABILITY_INCLUDE
@@ -231,7 +226,7 @@ router.patch("/menu/:itemId", async (req, res, next) => {
     }
 
     const itemId = String(req.params.itemId || "").trim();
-    const { name, category, description, photoUrl, price, stock, isAvailable } = req.body || {};
+    const { name, category, description, photoUrl, price, isAvailable } = req.body || {};
 
     const existingItem = await prisma.menuItem.findFirst({
       where: {
@@ -278,14 +273,6 @@ router.patch("/menu/:itemId", async (req, res, next) => {
         return res.status(400).json({ message: "price must be greater than 0." });
       }
       data.priceCents = priceCents;
-    }
-
-    if (stock !== undefined) {
-      const parsedStock = parseStock(stock);
-      if (parsedStock.error) {
-        return res.status(400).json({ message: parsedStock.error });
-      }
-      data.stock = parsedStock.value;
     }
 
     if (isAvailable !== undefined) {

@@ -74,6 +74,28 @@ CLIENT_ORIGINS=https://your-vercel-app.vercel.app,http://localhost:5174
 Local dev (where the Vite dev server is at `localhost:5173`) is already allowed by
 the API's default dev origins, no extra config needed.
 
+## Windows build troubleshooting
+
+If `npm run build` fails with:
+
+- `Unable to commit changes` from `rcedit-x64.exe` — fixed in `electron-builder.yml`
+  via `signAndEditExecutable: false`.
+- `app.asar` / `.exe` is used by another process — close any running
+  **Restaurant POS Desktop** / **RestaurantPOS** window, then rebuild. The `prebuild`
+  script tries to stop stale Electron processes automatically.
+
+```powershell
+taskkill /F /IM RestaurantPOS.exe /T
+taskkill /F /IM electron.exe /T
+npm run build
+```
+
+If the old folder is still locked, the build script automatically uses a fresh folder such as
+`desktop/dist/pkg-<timestamp>/win-unpacked/`. The console prints the exact `.exe` path when
+the build succeeds.
+
+Default path when nothing is locked: `desktop/dist/win-unpacked/RestaurantPOS.exe`
+
 ## Notes
 
 - **No web/package.json changes that pull in Electron**: Electron + electron-builder

@@ -9,6 +9,7 @@ import { createTableQrDataUrl } from "../components/owner/TableQrCode";
 import TableQrPrint from "../components/print/TableQrPrint";
 import { triggerPrint } from "../components/print/printUtils";
 import RestaurantLogo from "../components/RestaurantLogo";
+import { getDisplayScreenPath } from "../utils/displayApi";
 import {
   getPublicAppOrigin,
   getPublicPath,
@@ -16,6 +17,8 @@ import {
   isLocalOnlyOrderOrigin,
   setPublicAppOrigin
 } from "../utils/tableOrderLinks";
+import useOrderNotifications from "../hooks/useOrderNotifications";
+import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 import {
   AppShell,
   EmptyState,
@@ -167,7 +170,6 @@ export default function OwnerPage({ session, onLogout }) {
     name: "",
     category: MENU_CATEGORY_OPTIONS[0],
     price: "",
-    stock: "0",
     description: "",
     photoUrl: ""
   });
@@ -177,9 +179,13 @@ export default function OwnerPage({ session, onLogout }) {
     minStock: "0",
     currentStock: "0"
   });
+  const [activeOrders, setActiveOrders] = useState([]);
 
   const currentPlan = dashboard?.subscription?.plan || null;
   const pickupMenuLink = getPickupLink(dashboard?.restaurant?.slug);
+  const orderStatusScreenLink = dashboard?.restaurant?.slug
+    ? getPublicPath(getDisplayScreenPath(dashboard.restaurant.slug))
+    : "";
   const requiresPlanSelection = Boolean(dashboard?.requiresPlanSelection);
   const canUseBusinessTools = !requiresPlanSelection;
   const showPlanGate = requiresPlanSelection && !loading;
@@ -343,6 +349,35 @@ export default function OwnerPage({ session, onLogout }) {
   }, []);
 
   useEffect(() => {
+    if (!token || requiresPlanSelection) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function loadActiveOrders() {
+      try {
+        const result = await apiRequest("/restaurant/orders?active=true", { token });
+        if (!cancelled) {
+          setActiveOrders(result.orders || []);
+        }
+      } catch {
+        // Polling errors should not block the owner workspace.
+      }
+    }
+
+    loadActiveOrders();
+    const poller = window.setInterval(loadActiveOrders, FAST_POLL_MS);
+    const unbindVisibility = bindVisibilityRefresh(loadActiveOrders);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poller);
+      unbindVisibility();
+    };
+  }, [token, requiresPlanSelection]);
+
+  useEffect(() => {
     if (!printTableQr) {
       return undefined;
     }
@@ -423,6 +458,8 @@ export default function OwnerPage({ session, onLogout }) {
 
     loadRecipe(selectedRecipeItemId);
   }, [selectedRecipeItemId]);
+
+  useOrderNotifications(activeOrders, { enabled: canUseBusinessTools && !loading, panel: "owner" });
 
   async function activatePlan(event) {
     event.preventDefault();
@@ -618,7 +655,6 @@ export default function OwnerPage({ session, onLogout }) {
         name: "",
         category: MENU_CATEGORY_OPTIONS[0],
         price: "",
-        stock: "0",
         description: "",
         photoUrl: ""
       });
@@ -797,6 +833,26 @@ export default function OwnerPage({ session, onLogout }) {
                 )}
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-sm font-medium text-slate-900">Order Status Screen</p>
+                <p className="mt-1 text-xs text-slate-500">Full-screen TV display for pickup/counter customers.</p>
+                {orderStatusScreenLink ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <a className={buttonStyles.primary} href={orderStatusScreenLink} rel="noreferrer" target="_blank">
+                      Open Order Status Screen
+                    </a>
+                    <button
+                      className={buttonStyles.secondary}
+                      onClick={() => copyToClipboard(orderStatusScreenLink, "Order Status Screen link")}
+                      type="button"
+                    >
+                      Copy link
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">Set a restaurant slug in Settings to enable the display screen.</p>
+                )}
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <p className="text-sm font-medium text-slate-900">Example table QR link</p>
                 {tables[0] ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -955,7 +1011,7 @@ export default function OwnerPage({ session, onLogout }) {
         <div className="space-y-5">
           <SectionCard title="Menu items" description="Kitchen adds dishes. Owner reviews the live menu and can control visibility here.">
             {menuItems.length > 0 ? (
-              <SimpleTable headers={["Item", "Category", "Price", "Stock", "Recipe", "Actions"]}>
+              <SimpleTable headers={["Item", "Category", "Price", "Availability", "Recipe", "Actions"]}>
                 {menuItems.map((item) => (
                   <tr key={item.id}>
                     <td className="px-4 py-3">
@@ -968,8 +1024,12 @@ export default function OwnerPage({ session, onLogout }) {
                     <td className="px-4 py-3 text-slate-700">{item.category}</td>
                     <td className="px-4 py-3 text-slate-700">{formatPrice(item.price)}</td>
                     <td className="px-4 py-3 text-slate-700">
-                      <p>{item.stock} manual</p>
-                      <p className="text-xs text-slate-500">{item.orderableStock} orderable</p>
+                      <p>{item.isOrderable ? "Available" : item.availabilityText || "Unavailable"}</p>
+                      {item.hasRecipe && item.orderableStock != null ? (
+                        <p className="text-xs text-slate-500">{item.orderableStock} servings from ingredients</p>
+                      ) : (
+                        <p className="text-xs text-slate-500">No ingredient recipe</p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       <div className="space-y-2">

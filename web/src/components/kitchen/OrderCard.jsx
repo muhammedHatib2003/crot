@@ -38,6 +38,9 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">{order.status}</p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:mt-3 sm:text-3xl md:text-4xl">{order.orderCode}</h3>
+          {order.customerName ? (
+            <p className="mt-2 text-lg font-bold text-slate-900 sm:text-xl">{order.customerName}</p>
+          ) : null}
           <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-3">
             <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-700 sm:text-base">{order.sourceLabel}</p>
             <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 sm:text-[11px]">

@@ -1,16 +1,17 @@
 {
   "name": "crot-desktop",
   "version": "1.0.0",
-  "description": "Restaurant POS Desktop — Electron shell around the existing web UI.",
+  "description": "Restaurant POS Desktop - Electron shell around the existing web UI.",
+  "author": "CROT",
   "private": true,
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "concurrently -k -n vite,electron -c green,blue \"npm --prefix ../web run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "build:web": "npm --prefix ../web run build -- --base=./",
-    "build": "npm run build:web && electron-builder --dir",
-    "dist": "npm run build:web && electron-builder",
-    "dist:win": "npm run build:web && electron-builder --win"
+    "build": "npm run build:web && node scripts/prepare-build.js && node scripts/run-electron-builder.js --dir",
+    "dist": "npm run build:web && node scripts/prepare-build.js && node scripts/run-electron-builder.js",
+    "dist:win": "npm run build:web && node scripts/prepare-build.js && node scripts/run-electron-builder.js --win"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

@@ -156,15 +156,13 @@ async function reserveStockForOrder(client, restaurantId, previousItems, nextIte
   const productIds = [...new Set([...previousQuantities.keys(), ...nextQuantities.keys()])];
   const productsById = await loadProductsForItems(client, restaurantId, productIds);
 
-  const productUpdates = [];
-
   for (const productId of productIds) {
     const product = productsById.get(productId);
     const previousQuantity = previousQuantities.get(productId) || 0;
     const nextQuantity = nextQuantities.get(productId) || 0;
-    const manualAvailableQuantity = product.stock + previousQuantity;
     const availability = getMenuItemAvailability(product, { previousQuantity });
     const availableQuantity = availability.availableStock;
+    const quantityLimited = availability.ingredientCapacity !== null;
 
     if (nextQuantity > 0 && !product.isAvailable && previousQuantity === 0) {
       throw new PosServiceError(`${product.name} is currently unavailable.`, 409);
@@ -184,7 +182,7 @@ async function reserveStockForOrder(client, restaurantId, previousItems, nextIte
       });
     }
 
-    if (nextQuantity > availableQuantity) {
+    if (quantityLimited && nextQuantity > availableQuantity) {
       throw new PosServiceError(`Only ${availableQuantity} left for ${product.name}.`, 409, {
         productId,
         productName: product.name,
@@ -192,24 +190,6 @@ async function reserveStockForOrder(client, restaurantId, previousItems, nextIte
         availabilityReason: availability.availabilityReason
       });
     }
-
-    const nextStock = manualAvailableQuantity - nextQuantity;
-    if (nextStock !== product.stock) {
-      productUpdates.push(
-        client.menuItem.update({
-          where: {
-            id: product.id
-          },
-          data: {
-            stock: nextStock
-          }
-        })
-      );
-    }
-  }
-
-  if (productUpdates.length > 0) {
-    await Promise.all(productUpdates);
   }
 
   return productsById;

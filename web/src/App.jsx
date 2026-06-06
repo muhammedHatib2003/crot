@@ -14,6 +14,7 @@ import CourierLoginPage from "./pages/CourierLoginPage";
 import CourierSignupPage from "./pages/CourierSignupPage";
 import OrderPage from "./pages/OrderPage";
 import PickupOrderPage from "./pages/PickupOrderPage";
+import OrderStatusScreenPage from "./pages/OrderStatusScreenPage";
 import OnlineOrderPage from "./pages/OnlineOrderPage";
 import OnlineRestaurantPage from "./pages/OnlineRestaurantPage";
 import OnlineCartPage from "./pages/OnlineCartPage";
@@ -23,6 +24,8 @@ import OnlineCustomerSignupPage from "./pages/OnlineCustomerSignupPage";
 import PaymentStartPage from "./pages/PaymentStartPage";
 import PaymentResultPage from "./pages/PaymentResultPage";
 import LanguageSwitcher from "./components/app/LanguageSwitcher";
+import NotificationCenter from "./components/notifications/NotificationCenter";
+import { OrderNotificationProvider } from "./context/OrderNotificationContext";
 import { clearSession, getDefaultRoute, getSession, setSession } from "./auth";
 import {
   clearOnlineCustomerSession,
@@ -73,6 +76,25 @@ function ProtectedCourierRoute({ courierSession, children }) {
   return children;
 }
 
+function StaffNotificationShell({ session, children }) {
+  const isStaff =
+    session?.user?.systemRole === "OWNER" || session?.user?.systemRole === "EMPLOYEE";
+
+  if (!isStaff) {
+    return children;
+  }
+
+  return (
+    <OrderNotificationProvider session={session}>
+      <div className="fixed right-3 top-3 z-[80] flex items-center gap-2">
+        <NotificationCenter />
+        <LanguageSwitcher />
+      </div>
+      {children}
+    </OrderNotificationProvider>
+  );
+}
+
 export default function App() {
   const navigate = useNavigate();
   const [session, setSessionState] = useState(() => getSession());
@@ -110,10 +132,7 @@ export default function App() {
   }
 
   return (
-    <>
-      <div className="fixed right-3 top-3 z-[80]">
-        <LanguageSwitcher />
-      </div>
+    <StaffNotificationShell session={session}>
       <Routes>
         <Route path="/" element={<RedirectHome session={session} />} />
         <Route
@@ -249,12 +268,13 @@ export default function App() {
           path="/payment/result"
           element={<PaymentResultPage customerSession={onlineCustomerSession} />}
         />
+        <Route path="/display/:restaurantSlug" element={<OrderStatusScreenPage />} />
         <Route path="/t/:tableId" element={<OrderPage />} />
         <Route path="/order/:tableId" element={<OrderPage />} />
         <Route path="/:tenantSlug" element={<PickupOrderPage />} />
         <Route path="/:tenantSlug/menu" element={<PickupOrderPage />} />
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
-    </>
+    </StaffNotificationShell>
   );
 }

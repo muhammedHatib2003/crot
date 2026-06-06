@@ -4,6 +4,8 @@ import { AppShell, MessageBanner, PageHeader, SectionCard, StatusPill, buttonSty
 import KitchenTicketPrint from "../components/print/KitchenTicketPrint";
 import CustomerReceiptPrint from "../components/print/CustomerReceiptPrint";
 import { triggerPrint } from "../components/print/printUtils";
+import useOrderNotifications from "../hooks/useOrderNotifications";
+import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
 const ONLINE_NEXT_STATUSES = {
   READY: ["ON_THE_WAY", "COMPLETED", "CANCELLED"],
@@ -79,6 +81,7 @@ export default function CashierPage({ session, onLogout }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [printPayload, setPrintPayload] = useState(null);
+  const { acknowledgeOrder } = useOrderNotifications(orders, { panel: "cashier" });
 
   const restaurantInfo = useMemo(
     () => ({
@@ -183,6 +186,21 @@ export default function CashierPage({ session, onLogout }) {
   }, [session.token]);
 
   useEffect(() => {
+    if (loading) {
+      return undefined;
+    }
+
+    const refreshQueue = () => loadQueue();
+    const poller = window.setInterval(refreshQueue, FAST_POLL_MS);
+    const unbindVisibility = bindVisibilityRefresh(refreshQueue);
+
+    return () => {
+      window.clearInterval(poller);
+      unbindVisibility();
+    };
+  }, [loading, session.token]);
+
+  useEffect(() => {
     if (!openTableId) {
       return undefined;
     }
@@ -237,6 +255,7 @@ export default function CashierPage({ session, onLogout }) {
 
       const friendlyStatus = STATUS_LABELS[status] || status;
       setMessage(`Sipariş durumu güncellendi: ${friendlyStatus}.`);
+      acknowledgeOrder(orderId);
       await loadQueue();
     } catch (requestError) {
       setError(requestError.message);
@@ -338,7 +357,8 @@ export default function CashierPage({ session, onLogout }) {
                           <p className="text-sm text-slate-500">{order.orderCode}</p>
                           <p className="font-semibold text-slate-900">{order.orderType}</p>
                           <p className="text-sm text-slate-600">
-                            {order.customerName || "Customer"} {order.customerPhone ? `- ${order.customerPhone}` : ""}
+                            <span className="font-semibold text-slate-950">{order.customerName || "Customer"}</span>
+                            {order.customerPhone ? <span className="text-slate-500"> · {order.customerPhone}</span> : null}
                           </p>
                           {deliveryAddress ? (
                             <p className="mt-1 text-xs text-slate-500">{deliveryAddress}</p>

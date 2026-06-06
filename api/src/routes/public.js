@@ -2,6 +2,7 @@ const express = require("express");
 const prisma = require("../db");
 const { ACTIVE_ORDER_STATUSES, mapOrder } = require("../utils/orders");
 const { listMenuItems } = require("../utils/menu");
+const { fetchTodayDisplayOrders } = require("../utils/displayOrders");
 const { PosServiceError, createOrAppendTableOrder, createPickupOrder, orderInclude } = require("../services/pos.service");
 
 const router = express.Router();
@@ -83,6 +84,29 @@ async function getRestaurantContextBySlug(tenantSlug, options = {}) {
   return { restaurant, slug };
 }
 
+async function getRestaurantContextForDisplay(tenantSlug) {
+  const slug = String(tenantSlug || "").trim().toLowerCase();
+
+  const restaurant = await prisma.restaurant.findFirst({
+    where: {
+      slug
+    },
+    include: {
+      subscription: true
+    }
+  });
+
+  if (!restaurant) {
+    return { error: { status: 404, message: `Restaurant not found (slug: ${slug}).` } };
+  }
+
+  if (!restaurant.subscription || restaurant.subscription.status !== "ACTIVE") {
+    return { error: { status: 403, message: "Order status screen is not available for this restaurant yet." } };
+  }
+
+  return { restaurant, slug };
+}
+
 function handleServiceError(res, error, next) {
   if (error instanceof PosServiceError) {
     return res.status(error.status).json({
@@ -145,6 +169,7 @@ router.post("/tables/:tableId/orders", async (req, res, next) => {
       restaurantId: table.restaurantId,
       tableId: table.id,
       items: req.body?.items,
+      customerName: req.body?.customerName,
       source: "QR"
     });
 
@@ -271,6 +296,30 @@ router.post("/restaurants/:slug/orders", handlePickupCreateOrder);
 
 router.get("/tenants/:tenantSlug/orders/:orderId", handlePickupGetOrder);
 router.get("/restaurants/:slug/orders/:orderId", handlePickupGetOrder);
+
+async function handleDisplayOrders(req, res, next) {
+  try {
+    const slug = req.params.tenantSlug || req.params.slug;
+    const { restaurant, error } = await getRestaurantContextForDisplay(slug);
+
+    if (error) {
+      return res.status(error.status).json({ message: error.message, slug });
+    }
+
+    const groups = await fetchTodayDisplayOrders(prisma, restaurant.id);
+
+    return res.json({
+      restaurant: mapPublicRestaurant(restaurant),
+      groups,
+      refreshedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    return handleServiceError(res, error, next);
+  }
+}
+
+router.get("/tenants/:tenantSlug/display-orders", handleDisplayOrders);
+router.get("/restaurants/:slug/display-orders", handleDisplayOrders);
 
 router.get("/orders/:orderId", async (req, res, next) => {
   try {

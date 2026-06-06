@@ -1,5 +1,6 @@
 node_modules
 dist
+.electron-builder-output
 out
 build/icon-cache
 .env

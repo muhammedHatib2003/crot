@@ -5,8 +5,10 @@ import KitchenBoard from "../components/kitchen/KitchenBoard";
 import KitchenTicketPrint from "../components/print/KitchenTicketPrint";
 import { triggerPrint } from "../components/print/printUtils";
 import { normalizeImageUrl } from "../utils/images";
+import useOrderNotifications from "../hooks/useOrderNotifications";
+import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
-const POLL_INTERVAL_MS = 10000;
+const POLL_INTERVAL_MS = FAST_POLL_MS;
 const NEW_ORDER_FLASH_MS = 7000;
 const MENU_CATEGORY_OPTIONS = ["General", "Starter", "Main", "Dessert", "Drink"];
 const LATE_MINUTES_BY_STATUS = {
@@ -85,14 +87,15 @@ function formatRelativeTime(value, nowMs) {
 
 function getSourceLabel(order) {
   if (order.orderType === "PICKUP") {
-    return "PICKUP";
+    return order.customerName ? `PICKUP · ${order.customerName}` : "PICKUP";
   }
 
   if (order.orderType === "DELIVERY") {
-    return "ONLINE";
+    return order.customerName ? `ONLINE · ${order.customerName}` : "ONLINE";
   }
 
-  return String(order.table?.name || "TABLE").toUpperCase();
+  const tableLabel = String(order.table?.name || "TABLE").toUpperCase();
+  return order.customerName ? `${tableLabel} · ${order.customerName}` : tableLabel;
 }
 
 function getActionLabel(status) {
@@ -161,7 +164,6 @@ export default function KitchenPage({ session, onLogout }) {
     name: "",
     category: MENU_CATEGORY_OPTIONS[0],
     price: "",
-    stock: "0",
     description: "",
     photoUrl: ""
   });
@@ -169,12 +171,12 @@ export default function KitchenPage({ session, onLogout }) {
     name: "",
     category: MENU_CATEGORY_OPTIONS[0],
     price: "",
-    stock: "0",
     description: "",
     photoUrl: "",
     isAvailable: true
   });
   const hasLoadedRef = useRef(false);
+  const { acknowledgeOrder } = useOrderNotifications(orders, { panel: "kitchen" });
 
   const restaurantName = session.user.restaurant?.name || session.user.restaurantName || "Kitchen";
   const selectedMenuItem = useMemo(
@@ -241,11 +243,14 @@ export default function KitchenPage({ session, onLogout }) {
   useEffect(() => {
     loadOrders();
 
-    const poller = window.setInterval(() => {
-      loadOrders({ silent: true });
-    }, POLL_INTERVAL_MS);
+    const refreshOrders = () => loadOrders({ silent: true });
+    const poller = window.setInterval(refreshOrders, POLL_INTERVAL_MS);
+    const unbindVisibility = bindVisibilityRefresh(refreshOrders);
 
-    return () => window.clearInterval(poller);
+    return () => {
+      window.clearInterval(poller);
+      unbindVisibility();
+    };
   }, [session.token]);
 
   useEffect(() => {
@@ -267,7 +272,6 @@ export default function KitchenPage({ session, onLogout }) {
       name: selectedMenuItem.name || "",
       category: selectedMenuItem.category || MENU_CATEGORY_OPTIONS[0],
       price: String(selectedMenuItem.price || ""),
-      stock: String(selectedMenuItem.stock ?? 0),
       description: selectedMenuItem.description || "",
       photoUrl: selectedMenuItem.photoUrl || "",
       isAvailable: Boolean(selectedMenuItem.isAvailable)
@@ -361,7 +365,6 @@ export default function KitchenPage({ session, onLogout }) {
         name: "",
         category: MENU_CATEGORY_OPTIONS[0],
         price: "",
-        stock: "0",
         description: "",
         photoUrl: ""
       });
@@ -445,8 +448,7 @@ export default function KitchenPage({ session, onLogout }) {
         body: {
           ...editDishForm,
           photoUrl: normalizeImageUrl(editDishForm.photoUrl),
-          price: Number(editDishForm.price),
-          stock: Number(editDishForm.stock)
+          price: Number(editDishForm.price)
         }
       });
 
@@ -542,6 +544,7 @@ export default function KitchenPage({ session, onLogout }) {
         });
       }
 
+      acknowledgeOrder(order.id);
       await loadOrders({ silent: true });
     } catch (requestError) {
       setError(requestError.message);
@@ -584,6 +587,7 @@ export default function KitchenPage({ session, onLogout }) {
         }
       });
       setMessage(`${order.orderCode} numaralı sipariş iptal edildi.`);
+      acknowledgeOrder(order.id);
       await loadOrders({ silent: true });
     } catch (requestError) {
       setError(requestError.message);
@@ -830,17 +834,6 @@ export default function KitchenPage({ session, onLogout }) {
                       placeholder="0.00"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Stock</label>
-                    <input
-                      className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
-                      min="0"
-                      step="1"
-                      type="number"
-                      value={dishForm.stock}
-                      onChange={(e) => updateDishField("stock", e.target.value)}
-                    />
-                  </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                     <textarea
@@ -990,9 +983,11 @@ export default function KitchenPage({ session, onLogout }) {
                                 <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
                                   {item.category}
                                 </span>
-                                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
-                                  Stock {item.stock || 0}
-                                </span>
+                                {item.orderableStock != null && item.hasRecipe ? (
+                                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
+                                    {item.orderableStock} servings
+                                  </span>
+                                ) : null}
                               </div>
                             </div>
                             <p className="rounded-full bg-gradient-to-r from-brand-700 to-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(5,150,105,0.22)]">
@@ -1042,27 +1037,15 @@ export default function KitchenPage({ session, onLogout }) {
                           ))}
                         </select>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm text-slate-600 mb-1">Price</label>
-                          <input
-                            className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
-                            type="number"
-                            step="0.01"
-                            value={editDishForm.price}
-                            onChange={(e) => updateEditDishField("price", e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm text-slate-600 mb-1">Stock</label>
-                          <input
-                            className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
-                            type="number"
-                            step="1"
-                            value={editDishForm.stock}
-                            onChange={(e) => updateEditDishField("stock", e.target.value)}
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Price</label>
+                        <input
+                          className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+                          type="number"
+                          step="0.01"
+                          value={editDishForm.price}
+                          onChange={(e) => updateEditDishField("price", e.target.value)}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm text-slate-600 mb-1">Description</label>

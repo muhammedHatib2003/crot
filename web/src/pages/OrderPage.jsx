@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiRequest } from "../api";
+import PickupOrderStatusPanel from "../components/pickup/PickupOrderStatusPanel";
 import RemoteImage from "../components/RemoteImage";
+import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
 function formatPrice(value) {
   return `$${Number(value || 0).toFixed(2)}`;
@@ -15,18 +17,7 @@ function getAvailabilityTone(product) {
   return "rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700";
 }
 
-function getStatusTone(status) {
-  if (status === "READY") {
-    return "bg-amber-100 text-amber-900";
-  }
-  if (status === "PREPARING") {
-    return "bg-sky-100 text-sky-900";
-  }
-  if (status === "PAID") {
-    return "bg-emerald-100 text-emerald-900";
-  }
-  return "bg-slate-100 text-slate-700";
-}
+const TERMINAL_STATUSES = new Set(["PAID", "COMPLETED", "CANCELLED", "REJECTED"]);
 
 export default function OrderPage() {
   const { tableId } = useParams();
@@ -38,6 +29,8 @@ export default function OrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [orderRefreshing, setOrderRefreshing] = useState(false);
+  const [customerName, setCustomerName] = useState("");
 
   const products = payload?.products || payload?.items || [];
   const groupedProducts = useMemo(() => {
@@ -107,12 +100,26 @@ export default function OrderPage() {
     }
   }
 
-  async function loadOrder(orderId) {
+  async function loadOrder(orderId, { silent = false } = {}) {
+    if (!orderId) {
+      return;
+    }
+
+    if (!silent) {
+      setOrderRefreshing(true);
+    }
+
     try {
       const result = await apiRequest(`/public/orders/${orderId}`);
       setActiveOrder(result.order);
     } catch (requestError) {
-      setError(requestError.message);
+      if (!silent) {
+        setError(requestError.message);
+      }
+    } finally {
+      if (!silent) {
+        setOrderRefreshing(false);
+      }
     }
   }
 
@@ -121,15 +128,18 @@ export default function OrderPage() {
   }, [tableId]);
 
   useEffect(() => {
-    if (!activeOrder?.publicId || activeOrder.status === "PAID") {
+    if (!activeOrder?.publicId || TERMINAL_STATUSES.has(activeOrder.status)) {
       return undefined;
     }
 
-    const intervalId = setInterval(() => {
-      loadOrder(activeOrder.publicId);
-    }, 10000);
+    const refreshOrder = () => loadOrder(activeOrder.publicId, { silent: true });
+    const intervalId = setInterval(refreshOrder, FAST_POLL_MS);
+    const unbindVisibility = bindVisibilityRefresh(refreshOrder);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      unbindVisibility();
+    };
   }, [activeOrder?.publicId, activeOrder?.status]);
 
   function changeQuantity(productId, nextQuantity) {
@@ -181,6 +191,7 @@ export default function OrderPage() {
       const result = await apiRequest(`/public/tables/${tableId}/orders`, {
         method: "POST",
         body: {
+          customerName: customerName.trim() || undefined,
           items: cartItems.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
@@ -191,8 +202,11 @@ export default function OrderPage() {
 
       setActiveOrder(result.order);
       setCart({});
-      setMessage("Order sent.");
+      setMessage("Order sent. Track progress below — status updates automatically.");
       await loadMenu();
+      window.requestAnimationFrame(() => {
+        document.getElementById("order-status-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -220,31 +234,26 @@ export default function OrderPage() {
         {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div> : null}
         {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div> : null}
 
-        {activeOrder ? (
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Current order</p>
-                <p className="mt-2 text-lg font-semibold text-slate-950">{activeOrder.orderCode}</p>
-              </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getStatusTone(activeOrder.status)}`}>
-                {activeOrder.status}
-              </span>
-            </div>
-            <div className="mt-4 space-y-2">
-              {activeOrder.items.map((item) => (
-                <div key={item.id} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  <p className="font-medium text-slate-900">
-                    {item.quantity} x {item.name}
-                  </p>
-                  {item.notes ? <p className="mt-1 text-xs text-slate-500">{item.notes}</p> : null}
-                </div>
-              ))}
-            </div>
-          </section>
+        {activeOrder && !TERMINAL_STATUSES.has(activeOrder.status) ? (
+          <div className="rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
+            <p className="font-semibold">Your order is live on this screen</p>
+            <p className="mt-1 text-brand-800">Status refreshes every {FAST_POLL_MS / 1000} seconds while you keep this page open.</p>
+          </div>
         ) : null}
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        {activeOrder ? (
+          <PickupOrderStatusPanel
+            formatCurrency={formatPrice}
+            mode="table"
+            order={activeOrder}
+            refreshSeconds={FAST_POLL_MS / 1000}
+            refreshing={orderRefreshing}
+            tableName={payload?.table?.name || activeOrder.table?.name}
+            onRefresh={() => loadOrder(activeOrder.publicId)}
+          />
+        ) : null}
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" id="table-menu-section">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {groupedProducts.map(([category]) => (
               <button
@@ -338,10 +347,21 @@ export default function OrderPage() {
         className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white px-4 py-4 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] sm:px-6"
         onSubmit={placeOrder}
       >
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{cartItems.length} items</p>
-            <p className="mt-1 text-xl font-semibold text-slate-950">{formatPrice(cartTotal)}</p>
+        <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Ad Soyad</label>
+              <input
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
+                placeholder="Siparişte görünsün"
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+              />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{cartItems.length} items</p>
+              <p className="mt-1 text-xl font-semibold text-slate-950">{formatPrice(cartTotal)}</p>
+            </div>
           </div>
           <button
             className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"

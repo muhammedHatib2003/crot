@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate } from "react-router-dom";
 import {
@@ -189,8 +190,11 @@ export default function OwnerOnlineOrdersPage({ session, onLogout }) {
   }, []);
 
   useEffect(() => {
-    const id = setInterval(async () => {
-      if (activeTab !== "orders") return;
+    async function refreshOrders() {
+      if (activeTab !== "orders") {
+        return;
+      }
+
       setRefreshingOrders(true);
       try {
         await loadOrders();
@@ -199,8 +203,15 @@ export default function OwnerOnlineOrdersPage({ session, onLogout }) {
       } finally {
         setRefreshingOrders(false);
       }
-    }, 15000);
-    return () => clearInterval(id);
+    }
+
+    const id = setInterval(refreshOrders, FAST_POLL_MS);
+    const unbindVisibility = bindVisibilityRefresh(refreshOrders);
+
+    return () => {
+      clearInterval(id);
+      unbindVisibility();
+    };
   }, [activeTab, token]);
 
   function setField(key, value) {
