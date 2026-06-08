@@ -98,13 +98,20 @@ function getSourceLabel(order) {
   return order.customerName ? `${tableLabel} · ${order.customerName}` : tableLabel;
 }
 
-function getActionLabel(status) {
+function getActionLabel(order) {
+  const status = order?.status;
+  const orderType = String(order?.orderType || "").trim().toUpperCase();
+
   if (status === "PENDING" || status === "ACCEPTED") {
     return "Start";
   }
 
   if (status === "PREPARING") {
     return "Ready";
+  }
+
+  if (status === "READY" && orderType === "PICKUP") {
+    return "Teslim Edildi";
   }
 
   return "Complete";
@@ -611,7 +618,7 @@ export default function KitchenPage({ session, onLogout }) {
           placedLabel: formatRelativeTime(order.createdAt, nowMs),
           startedLabel: formatClockTime(boardStartedAt),
           elapsedLabel: formatElapsed(nowMs - boardStartedAtMs),
-          actionLabel: getActionLabel(order.status),
+          actionLabel: getActionLabel(order),
           boardStartedAtMs,
           isLate: isOrderLate(order, nowMs),
           isNew: newOrderIds.includes(order.id)

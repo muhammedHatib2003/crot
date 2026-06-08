@@ -59,6 +59,13 @@ function groupDisplayOrders(orders) {
 
   orders.forEach((order) => {
     const mapped = mapDisplayOrder(order);
+    const isPickupHandedOff =
+      order.orderType === "PICKUP" && order.kitchenCompletedAt && READY_STATUSES.includes(order.status);
+
+    if (isPickupHandedOff || COMPLETED_STATUSES.includes(order.status)) {
+      completed.push(mapped);
+      return;
+    }
 
     if (PREPARING_STATUSES.includes(order.status)) {
       preparing.push(mapped);
@@ -67,11 +74,6 @@ function groupDisplayOrders(orders) {
 
     if (READY_STATUSES.includes(order.status)) {
       ready.push(mapped);
-      return;
-    }
-
-    if (COMPLETED_STATUSES.includes(order.status)) {
-      completed.push(mapped);
     }
   });
 

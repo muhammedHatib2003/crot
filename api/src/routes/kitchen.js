@@ -123,13 +123,22 @@ router.post("/orders/:orderId/complete", async (req, res, next) => {
       return res.status(409).json({ message: "Only ready orders can be completed on the kitchen display." });
     }
 
+    const completedAt = new Date();
+    const isPickupHandoff = order.orderType === "PICKUP";
+
     const updatedOrder = await prisma.order.update({
       where: {
         id: order.id
       },
-      data: {
-        kitchenCompletedAt: new Date()
-      },
+      data: isPickupHandoff
+        ? {
+            status: "COMPLETED",
+            kitchenCompletedAt: completedAt,
+            completedAt
+          }
+        : {
+            kitchenCompletedAt: completedAt
+          },
       include: orderInclude
     });
 

@@ -430,7 +430,7 @@ export default function CashierPage({ session, onLogout }) {
                               onClick={() => checkoutPickupOrder(order.id, "CASH")}
                               type="button"
                             >
-                              {payingOrderId === order.id ? "Processing..." : "Nakit Öde"}
+                              {payingOrderId === order.id ? "Processing..." : "Nakit Öde & Teslim Et"}
                             </button>
                             <button
                               className={buttonStyles.primary}
@@ -438,23 +438,33 @@ export default function CashierPage({ session, onLogout }) {
                               onClick={() => checkoutPickupOrder(order.id, "CARD")}
                               type="button"
                             >
-                              {payingOrderId === order.id ? "Processing..." : "Kart Öde"}
+                              {payingOrderId === order.id ? "Processing..." : "Kart Öde & Teslim Et"}
+                            </button>
+                            <button
+                              className={buttonStyles.secondary}
+                              disabled={updatingOrderId === order.id}
+                              onClick={() => updateOrderStatus(order.id, "COMPLETED")}
+                              type="button"
+                            >
+                              {updatingOrderId === order.id ? "Updating..." : "Teslim Edildi (ödeme alındı)"}
                             </button>
                           </>
                         ) : null}
-                        {nextStatuses.map((status) => (
-                          <button
-                            key={status}
-                            className={status === "CANCELLED" ? buttonStyles.secondary : buttonStyles.primary}
-                            disabled={updatingOrderId === order.id}
-                            onClick={() => updateOrderStatus(order.id, status)}
-                            type="button"
-                          >
-                            {updatingOrderId === order.id
-                              ? "Updating..."
-                              : STATUS_BUTTON_LABELS[status] || status}
-                          </button>
-                        ))}
+                        {order.orderType !== "PICKUP"
+                          ? nextStatuses.map((status) => (
+                              <button
+                                key={status}
+                                className={status === "CANCELLED" ? buttonStyles.secondary : buttonStyles.primary}
+                                disabled={updatingOrderId === order.id}
+                                onClick={() => updateOrderStatus(order.id, status)}
+                                type="button"
+                              >
+                                {updatingOrderId === order.id
+                                  ? "Updating..."
+                                  : STATUS_BUTTON_LABELS[status] || status}
+                              </button>
+                            ))
+                          : null}
                       </div>
                     </article>
                   );
