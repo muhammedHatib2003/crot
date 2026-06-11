@@ -59,6 +59,12 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
       const place = await reverseGeocodeCoordinates(nextCoords.lat, nextCoords.lng);
       setCity((previous) => place.city || previous);
       setDistrict((previous) => place.district || previous);
+      writeOnlineLocationContext({
+        lat: nextCoords.lat,
+        lng: nextCoords.lng,
+        city: place.city,
+        district: place.district
+      });
     } catch (error) {
       setMapStatus(t("onlineOrder.map.reverseGeocodeFailed"));
     }

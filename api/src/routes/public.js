@@ -4,6 +4,7 @@ const { ACTIVE_ORDER_STATUSES, mapOrder } = require("../utils/orders");
 const { listMenuItems } = require("../utils/menu");
 const { fetchTodayDisplayOrders } = require("../utils/displayOrders");
 const { PosServiceError, createOrAppendTableOrder, createPickupOrder, orderInclude } = require("../services/pos.service");
+const { reverseGeocodeCoordinates } = require("../utils/geocode");
 
 const router = express.Router();
 
@@ -320,6 +321,15 @@ async function handleDisplayOrders(req, res, next) {
 
 router.get("/tenants/:tenantSlug/display-orders", handleDisplayOrders);
 router.get("/restaurants/:slug/display-orders", handleDisplayOrders);
+
+router.get("/geocode/reverse", async (req, res, next) => {
+  try {
+    const place = await reverseGeocodeCoordinates(req.query?.lat, req.query?.lng);
+    return res.json({ place });
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Konum detayi alinamadi." });
+  }
+});
 
 router.get("/orders/:orderId", async (req, res, next) => {
   try {

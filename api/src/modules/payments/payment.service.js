@@ -13,7 +13,7 @@ class PaymentError extends Error {
 }
 
 function buildResultRedirectUrl(status, orderId, extraParams = {}) {
-  const url = new URL("/payment/result", config.clientUrl);
+  const url = new URL("/payment/result", config.publicAppUrl || config.clientUrl);
   url.searchParams.set("status", status);
   if (orderId) {
     url.searchParams.set("orderId", String(orderId));

@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from "../api";
+
 const ONLINE_LOCATION_KEY = "crot_online_order_location";
 
 function toNumber(value) {
@@ -100,23 +102,56 @@ export async function reverseGeocodeCoordinates(latitude, longitude) {
   }
 
   const params = new URLSearchParams({
-    format: "jsonv2",
     lat: String(lat),
-    lon: String(lng),
-    "accept-language": "tr"
+    lng: String(lng)
   });
-  const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params.toString()}`);
+  const response = await fetch(`${getApiBaseUrl()}/public/geocode/reverse?${params.toString()}`);
+  const payload = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    throw new Error("Konum detayi alinamadi.");
+    throw new Error(payload.message || "Konum detayi alinamadi.");
   }
 
-  const payload = await response.json();
-  const address = payload?.address || {};
+  const place = payload?.place || {};
   return {
-    city: String(address.city || address.town || address.province || address.state || "").trim(),
-    district: String(address.county || address.state_district || address.suburb || "").trim(),
-    displayName: String(payload?.display_name || "").trim()
+    city: String(place.city || "").trim(),
+    district: String(place.district || "").trim(),
+    neighborhood: String(place.neighborhood || "").trim(),
+    addressText: String(place.addressText || place.displayName || "").trim(),
+    displayName: String(place.displayName || place.addressText || "").trim()
   };
+}
+
+export async function fillAddressFromCoordinates(latitude, longitude) {
+  const coords = {
+    lat: normalizeLatitude(latitude),
+    lng: normalizeLongitude(longitude)
+  };
+
+  if (coords.lat === null || coords.lng === null) {
+    throw new Error("Konum bilgisi gecersiz.");
+  }
+
+  try {
+    const place = await reverseGeocodeCoordinates(coords.lat, coords.lng);
+    return {
+      latitude: String(coords.lat),
+      longitude: String(coords.lng),
+      city: place.city,
+      district: place.district,
+      neighborhood: place.neighborhood,
+      addressText: place.addressText
+    };
+  } catch {
+    return {
+      latitude: String(coords.lat),
+      longitude: String(coords.lng),
+      city: "",
+      district: "",
+      neighborhood: "",
+      addressText: ""
+    };
+  }
 }
 
 function normalize(value) {

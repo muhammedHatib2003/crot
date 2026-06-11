@@ -36,6 +36,20 @@ function resolvePublicAppUrl() {
   return candidates[0] || "http://localhost:5173";
 }
 
+function resolveApiUrl() {
+  const explicit = normalizeOrigin(process.env.API_URL);
+  if (explicit && !isLocalOrigin(explicit)) {
+    return explicit;
+  }
+
+  const renderExternal = normalizeOrigin(process.env.RENDER_EXTERNAL_URL);
+  if (renderExternal) {
+    return renderExternal;
+  }
+
+  return explicit || "http://localhost:4000";
+}
+
 const nodeEnv = process.env.NODE_ENV || "development";
 const isProduction = nodeEnv === "production";
 
@@ -51,7 +65,7 @@ module.exports = {
   clientUrl: normalizeOrigin(process.env.CLIENT_URL || process.env.CLIENT_ORIGIN) || "http://localhost:5173",
   publicAppUrl: resolvePublicAppUrl(),
   extraClientOrigins: parseOriginList(process.env.CLIENT_ORIGINS),
-  apiUrl: process.env.API_URL || "http://localhost:4000",
+  apiUrl: resolveApiUrl(),
   iyzico: {
     apiKey: process.env.IYZICO_API_KEY || "",
     secretKey: process.env.IYZICO_SECRET_KEY || "",

@@ -45,7 +45,7 @@ const DEFAULT_DEV_ORIGINS = [
 ];
 
 const allowedOrigins = new Set(
-  [config.clientUrl, ...config.extraClientOrigins, ...DEFAULT_DEV_ORIGINS]
+  [config.clientUrl, config.publicAppUrl, ...config.extraClientOrigins, ...DEFAULT_DEV_ORIGINS]
     .map(normalizeOriginValue)
     .filter(Boolean)
 );

@@ -2,13 +2,18 @@ const express = require("express");
 const prisma = require("../db");
 const { authenticate, requireRoles } = require("../middleware/auth");
 const { getEmployeeContext, normalizeEmployeeRole } = require("../utils/employees");
+const { CASHIER_VISIBLE_STATUSES, mapOrder, mapPayment } = require("../utils/orders");
 const {
-  ACTIVE_ORDER_STATUSES,
-  CASHIER_VISIBLE_STATUSES,
-  mapOrder,
-  mapPayment
-} = require("../utils/orders");
-const { PosServiceError, listRoleOrders, orderInclude, updateOrderStatus } = require("../services/pos.service");
+  PosServiceError,
+  createOrAppendTableOrder,
+  deletePendingOrder,
+  listProducts,
+  listRoleOrders,
+  listWaiterTables,
+  orderInclude,
+  replacePendingOrder,
+  updateOrderStatus
+} = require("../services/pos.service");
 const { syncTableStatus } = require("../utils/tables");
 
 const router = express.Router();
@@ -45,28 +50,6 @@ function handleServiceError(res, error, next) {
   return next(error);
 }
 
-function mapCashierTable(table) {
-  const readyOrders = (table.orders || []).filter(
-    (order) => order.status === "READY" && order.orderType === "DINE_IN"
-  );
-
-  const totalDueCents = readyOrders.reduce((sum, order) => sum + order.totalCents, 0);
-
-  return {
-    id: table.id,
-    name: table.name,
-    seats: table.seats,
-    status: table.status,
-    createdAt: table.createdAt,
-    updatedAt: table.updatedAt,
-    isOccupied: table.status === "OCCUPIED" || (table.orders || []).length > 0,
-    activeOrderCount: (table.orders || []).length,
-    readyOrderCount: readyOrders.length,
-    totalDueCents,
-    totalDue: totalDueCents / 100
-  };
-}
-
 router.get("/orders", async (req, res, next) => {
   try {
     const { employee, error } = await requireCashier(req, res);
@@ -88,24 +71,110 @@ router.get("/tables", async (req, res, next) => {
       return res.status(error.status).json({ message: error.message });
     }
 
-    const tables = await prisma.diningTable.findMany({
-      where: {
-        restaurantId: employee.restaurantId
-      },
-      include: {
-        orders: {
-          where: {
-            status: {
-              in: ACTIVE_ORDER_STATUSES
-            }
-          }
-        }
-      },
-      orderBy: [{ name: "asc" }]
+    const tables = await listWaiterTables(employee.restaurantId);
+
+    return res.json({
+      tables: tables.map((table) => {
+        const readyOrders = (table.activeOrders || []).filter(
+          (order) => order.status === "READY" && order.orderType === "TABLE"
+        );
+        const totalDueCents = readyOrders.reduce(
+          (sum, order) => sum + Math.round(Number(order.totalPrice || 0) * 100),
+          0
+        );
+
+        return {
+          ...table,
+          readyOrderCount: readyOrders.length,
+          totalDueCents,
+          totalDue: totalDueCents / 100
+        };
+      })
+    });
+  } catch (error) {
+    return handleServiceError(res, error, next);
+  }
+});
+
+router.get("/products", async (req, res, next) => {
+  try {
+    const { employee, error } = await requireCashier(req, res);
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    const products = await listProducts(employee.restaurantId, { availableOnly: true });
+    return res.json({ products });
+  } catch (error) {
+    return handleServiceError(res, error, next);
+  }
+});
+
+router.post("/orders", async (req, res, next) => {
+  try {
+    const { employee, error } = await requireCashier(req, res);
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    const tableId = String(req.body?.tableId || "").trim();
+    if (!tableId) {
+      return res.status(400).json({ message: "tableId is required." });
+    }
+
+    const order = await createOrAppendTableOrder({
+      restaurantId: employee.restaurantId,
+      tableId,
+      items: req.body?.items,
+      source: "CASHIER"
+    });
+
+    return res.status(201).json({
+      message: "Order saved successfully.",
+      order
+    });
+  } catch (error) {
+    return handleServiceError(res, error, next);
+  }
+});
+
+router.put("/orders/:orderId", async (req, res, next) => {
+  try {
+    const { employee, error } = await requireCashier(req, res);
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    const order = await replacePendingOrder({
+      restaurantId: employee.restaurantId,
+      orderId: String(req.params.orderId || "").trim(),
+      items: req.body?.items,
+      source: req.body?.source
     });
 
     return res.json({
-      tables: tables.map(mapCashierTable)
+      message: "Order updated successfully.",
+      order
+    });
+  } catch (error) {
+    return handleServiceError(res, error, next);
+  }
+});
+
+router.delete("/orders/:orderId", async (req, res, next) => {
+  try {
+    const { employee, error } = await requireCashier(req, res);
+    if (error) {
+      return res.status(error.status).json({ message: error.message });
+    }
+
+    await deletePendingOrder({
+      restaurantId: employee.restaurantId,
+      orderId: String(req.params.orderId || "").trim()
+    });
+
+    return res.json({
+      message: "Pending order deleted."
     });
   } catch (error) {
     return handleServiceError(res, error, next);

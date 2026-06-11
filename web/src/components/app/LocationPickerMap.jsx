@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import L from "leaflet";
-import { Circle, MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import markerIcon2xUrl from "leaflet/dist/images/marker-icon-2x.png";
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
@@ -23,6 +23,16 @@ function ClickHandler({ onPick }) {
   return null;
 }
 
+function RecenterMap({ center, zoom }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center.lat, center.lng, map, zoom]);
+
+  return null;
+}
+
 export default function LocationPickerMap({ latitude, longitude, onPick, radiusKm = 0, heightClass = "h-72" }) {
   const center = useMemo(() => {
     const lat = Number(latitude);
@@ -34,20 +44,26 @@ export default function LocationPickerMap({ latitude, longitude, onPick, radiusK
   }, [latitude, longitude]);
 
   const hasPoint = Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+  const zoom = hasPoint ? 15 : 11;
 
   return (
     <div className={`overflow-hidden rounded-xl border border-slate-200 ${heightClass}`}>
-      <MapContainer center={center} className="h-full w-full" scrollWheelZoom zoom={hasPoint ? 15 : 11}>
+      <MapContainer center={center} className="h-full w-full" scrollWheelZoom zoom={zoom}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <RecenterMap center={center} zoom={zoom} />
         <ClickHandler onPick={onPick} />
         {hasPoint ? (
           <>
             <Marker position={center} />
             {Number(radiusKm) > 0 ? (
-              <Circle center={center} pathOptions={{ color: "#2563eb", fillColor: "#60a5fa", fillOpacity: 0.15 }} radius={Number(radiusKm) * 1000} />
+              <Circle
+                center={center}
+                pathOptions={{ color: "#2563eb", fillColor: "#60a5fa", fillOpacity: 0.15 }}
+                radius={Number(radiusKm) * 1000}
+              />
             ) : null}
           </>
         ) : null}

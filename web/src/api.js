@@ -1,9 +1,22 @@
+function isLocalHostValue(value) {
+  return /localhost|127\.0\.0\.1/i.test(String(value || ""));
+}
+
 function resolveApiBaseUrl() {
   const rawBase = import.meta.env.VITE_API_BASE_URL;
   const rawRoot = import.meta.env.VITE_API_URL;
-  const fallback = "http://localhost:4000";
+  const productionFallback = String(import.meta.env.VITE_PRODUCTION_API_URL || "https://crot.onrender.com").trim();
+  const localFallback = "http://localhost:4000";
 
-  let candidate = (rawBase || rawRoot || fallback).trim().replace(/\/+$/, "");
+  let candidate = (rawBase || rawRoot || "").trim().replace(/\/+$/, "");
+
+  if (!candidate || isLocalHostValue(candidate)) {
+    if (typeof window !== "undefined" && !isLocalHostValue(window.location.hostname)) {
+      candidate = productionFallback.replace(/\/+$/, "");
+    } else {
+      candidate = localFallback;
+    }
+  }
 
   // Common misconfiguration on Vercel: .../api/public or .../public
   if (/\/api\/public$/i.test(candidate)) {

@@ -13,6 +13,7 @@ import {
   writeOnlineCart
 } from "../utils/onlineCart";
 import {
+  fillAddressFromCoordinates,
   getCurrentBrowserLocation,
   hasValidCoordinates,
   normalizeLatitude,
@@ -273,6 +274,25 @@ export default function OnlineCartPage({ customerSession, onCustomerLogout }) {
     });
   }, [locationContext.city, locationContext.district, locationContext.lat, locationContext.lng, selectedAddress]);
 
+  useEffect(() => {
+    if (orderType !== "DELIVERY" || selectedAddress || !showAddressForm) {
+      return;
+    }
+
+    if (hasValidCoordinates(addressForm.latitude, addressForm.longitude)) {
+      return;
+    }
+
+    if (locationContext.lat != null && locationContext.lng != null) {
+      applyAddressCoordinates({ lat: locationContext.lat, lng: locationContext.lng }).catch(() => {});
+      return;
+    }
+
+    getCurrentBrowserLocation()
+      .then((coords) => applyAddressCoordinates(coords))
+      .catch(() => {});
+  }, [orderType, selectedAddress, showAddressForm]);
+
   const baseTotals = useMemo(() => getOnlineCartTotals(cart), [cart]);
 
   const deliveryDistanceKm = useMemo(() => {
@@ -352,25 +372,42 @@ export default function OnlineCartPage({ customerSession, onCustomerLogout }) {
     saveCart(updateOnlineCartItemQuantity(cart, productId, 0));
   }
 
-  function useCurrentAddressLocation() {
-    getCurrentBrowserLocation()
-      .then((coords) => {
-        setAddressForm((previous) => ({
-          ...previous,
-          latitude: String(coords.lat),
-          longitude: String(coords.lng)
-        }));
-      })
-      .catch((locationError) => setError(locationError.message));
-  }
-
-  function pickAddressFromMap(nextCoords) {
+  async function applyAddressCoordinates(coords) {
+    const filled = await fillAddressFromCoordinates(coords.lat, coords.lng);
     setAddressForm((previous) => ({
       ...previous,
-      latitude: String(nextCoords.lat),
-      longitude: String(nextCoords.lng)
+      latitude: filled.latitude,
+      longitude: filled.longitude,
+      city: filled.city || previous.city,
+      district: filled.district || previous.district,
+      neighborhood: filled.neighborhood || previous.neighborhood,
+      addressText: filled.addressText || previous.addressText
     }));
-    setMapStatus(t("onlineOrder.map.picked"));
+    setMapStatus(
+      filled.city || filled.addressText
+        ? t("onlineOrder.map.picked")
+        : "Konum secildi. Gerekirse adres detayini duzenleyin."
+    );
+  }
+
+  function useCurrentAddressLocation() {
+    setMapStatus("Konum aliniyor...");
+    getCurrentBrowserLocation()
+      .then((coords) => applyAddressCoordinates(coords))
+      .catch((locationError) => {
+        setMapStatus("");
+        setError(locationError.message);
+      });
+  }
+
+  async function pickAddressFromMap(nextCoords) {
+    setMapStatus("Adres bilgisi aliniyor...");
+    try {
+      await applyAddressCoordinates(nextCoords);
+    } catch (locationError) {
+      setMapStatus("");
+      setError(locationError.message);
+    }
   }
 
   async function handleSaveAddress() {
