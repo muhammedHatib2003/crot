@@ -5,6 +5,8 @@ import KitchenTicketPrint from "../components/print/KitchenTicketPrint";
 import CustomerReceiptPrint from "../components/print/CustomerReceiptPrint";
 import { triggerPrint } from "../components/print/printUtils";
 import useOrderNotifications from "../hooks/useOrderNotifications";
+import useAppTranslation from "../hooks/useAppTranslation";
+import { translateOrderStatus, translatePaymentMethod } from "../utils/locale";
 import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
 const ONLINE_NEXT_STATUSES = {
@@ -12,23 +14,11 @@ const ONLINE_NEXT_STATUSES = {
   ON_THE_WAY: ["COMPLETED", "CANCELLED"]
 };
 
-const STATUS_LABELS = {
-  READY: "Hazır",
-  ON_THE_WAY: "Kuryeye Verildi",
-  COMPLETED: "Tamamlandı",
-  CANCELLED: "İptal"
+const STATUS_ACTION_KEYS = {
+  ON_THE_WAY: "cashier.actions.onTheWay",
+  COMPLETED: "cashier.actions.completed",
+  CANCELLED: "cashier.actions.cancel"
 };
-
-const STATUS_BUTTON_LABELS = {
-  ON_THE_WAY: "Kuryeye Verildi",
-  COMPLETED: "Tamamlandı",
-  CANCELLED: "İptal Et",
-  PAID: "Ödendi"
-};
-
-function formatPrice(value) {
-  return `$${Number(value || 0).toFixed(2)}`;
-}
 
 function createDraftId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -77,17 +67,8 @@ function getTableTone(table) {
     : "border-emerald-300 bg-emerald-50 text-emerald-950";
 }
 
-function getTableStatusLabel(table) {
-  if (table.readyOrderCount > 0) {
-    return `${table.readyOrderCount} ready`;
-  }
-  if (table.isOccupied) {
-    return `${table.activeOrderCount} active`;
-  }
-  return "empty";
-}
-
 export default function CashierPage({ session, onLogout }) {
+  const { t, formatCurrency } = useAppTranslation();
   const [me, setMe] = useState(session.user);
   const [tables, setTables] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -106,12 +87,27 @@ export default function CashierPage({ session, onLogout }) {
   const [printPayload, setPrintPayload] = useState(null);
   const { acknowledgeOrder } = useOrderNotifications(orders, { panel: "cashier" });
 
+  function getTableStatusLabel(table) {
+    if (table.readyOrderCount > 0) {
+      return t("cashier.tableStatus.readyCount", { count: table.readyOrderCount });
+    }
+    if (table.isOccupied) {
+      return t("cashier.tableStatus.activeCount", { count: table.activeOrderCount });
+    }
+    return t("cashier.tableStatus.empty");
+  }
+
+  function getStatusButtonLabel(status) {
+    const key = STATUS_ACTION_KEYS[status];
+    return key ? t(key) : translateOrderStatus(t, status);
+  }
+
   const restaurantInfo = useMemo(
     () => ({
-      name: me?.restaurant?.name || me?.restaurantName || "Restoran",
+      name: me?.restaurant?.name || me?.restaurantName || t("common.restaurantFallback"),
       logoUrl: me?.restaurant?.logoUrl || null
     }),
-    [me?.restaurant?.name, me?.restaurantName, me?.restaurant?.logoUrl]
+    [me?.restaurant?.name, me?.restaurantName, me?.restaurant?.logoUrl, t]
   );
 
   function openPrint(mode, order) {
@@ -289,7 +285,12 @@ export default function CashierPage({ session, onLogout }) {
         }
       });
 
-      setMessage(`${result.table.name} payment completed with ${paymentMethod}.`);
+      setMessage(
+        t("cashier.messages.paymentCompleted", {
+          tableName: result.table.name,
+          method: translatePaymentMethod(t, paymentMethod)
+        })
+      );
       closeTablePopup();
       await loadQueue();
     } catch (requestError) {
@@ -311,7 +312,12 @@ export default function CashierPage({ session, onLogout }) {
         body: { paymentMethod }
       });
 
-      setMessage(result.message || `Pickup payment completed (${paymentMethod}).`);
+      setMessage(
+        result.message ||
+          t("cashier.messages.pickupPaymentCompleted", {
+            method: translatePaymentMethod(t, paymentMethod)
+          })
+      );
       await loadQueue();
     } catch (requestError) {
       setError(requestError.message);
@@ -368,9 +374,9 @@ export default function CashierPage({ session, onLogout }) {
           method: "DELETE",
           token: session.token
         });
-        setMessage("Bekleyen siparis kaldirildi.");
+        setMessage(t("cashier.messages.pendingRemoved"));
       } else if (draftItems.length === 0) {
-        setError("Kaydetmeden once en az bir urun ekleyin.");
+        setError(t("cashier.messages.addOneItem"));
         return;
       } else if (pendingTableOrder) {
         await apiRequest(`/cashier/orders/${pendingTableOrder.id}`, {
@@ -378,7 +384,7 @@ export default function CashierPage({ session, onLogout }) {
           token: session.token,
           body: { items: draftItems }
         });
-        setMessage("Masa siparisi guncellendi.");
+        setMessage(t("cashier.messages.tableOrderUpdated"));
       } else {
         await apiRequest("/cashier/orders", {
           method: "POST",
@@ -388,7 +394,7 @@ export default function CashierPage({ session, onLogout }) {
             items: draftItems
           }
         });
-        setMessage("Masa acildi ve siparis mutfaga gonderildi.");
+        setMessage(t("cashier.messages.tableOpened"));
       }
 
       await loadQueue();
@@ -413,8 +419,11 @@ export default function CashierPage({ session, onLogout }) {
         }
       });
 
-      const friendlyStatus = STATUS_LABELS[status] || status;
-      setMessage(`Sipariş durumu güncellendi: ${friendlyStatus}.`);
+      setMessage(
+        t("cashier.messages.statusUpdated", {
+          status: translateOrderStatus(t, status)
+        })
+      );
       acknowledgeOrder(orderId);
       await loadQueue();
     } catch (requestError) {
@@ -428,17 +437,17 @@ export default function CashierPage({ session, onLogout }) {
     <AppShell>
       <div className="space-y-5">
         <PageHeader
-          title="Cashier"
-          eyebrow="Role"
-          description="The dining room stays front and center. Tables use most of the screen, and payment details open in a popup."
-          meta={[me.restaurant?.name || me.restaurantName || "Restaurant", me.fullName]}
+          title={t("cashier.title")}
+          eyebrow={t("cashier.eyebrow")}
+          description={t("cashier.description")}
+          meta={[me.restaurant?.name || me.restaurantName || t("common.restaurantFallback"), me.fullName]}
           actions={
             <>
               <button className={buttonStyles.secondary} disabled={refreshing} onClick={() => loadQueue(true)} type="button">
-                {refreshing ? "Refreshing..." : "Refresh"}
+                {refreshing ? t("common.actions.refreshing") : t("common.actions.refresh")}
               </button>
               <button className={buttonStyles.secondary} onClick={onLogout} type="button">
-                Logout
+                {t("common.actions.logout")}
               </button>
             </>
           }
@@ -446,7 +455,7 @@ export default function CashierPage({ session, onLogout }) {
 
         {loading ? (
           <SectionCard>
-            <p className="text-sm text-slate-600">Loading cashier tables...</p>
+            <p className="text-sm text-slate-600">{t("common.loading.cashierTables")}</p>
           </SectionCard>
         ) : null}
         {error ? <MessageBanner tone="error">{error}</MessageBanner> : null}
@@ -455,8 +464,8 @@ export default function CashierPage({ session, onLogout }) {
         {!loading ? (
           <SectionCard
             className="xl:min-h-[78vh]"
-            title="Tables"
-            description="Masaya tiklayin: odeme veya masa acma / siparis ekleme."
+            title={t("cashier.panelTitle")}
+            description={t("cashier.panelDescription")}
           >
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-5">
               {tables.map((table) => (
@@ -480,9 +489,13 @@ export default function CashierPage({ session, onLogout }) {
                     </div>
 
                     <div>
-                      <p className="text-xs uppercase tracking-[0.14em] opacity-70">Due now</p>
+                      <p className="text-xs uppercase tracking-[0.14em] opacity-70">{t("cashier.dueNow")}</p>
                       <p className="mt-1 text-2xl font-semibold">
-                        {table.totalDue > 0 ? formatPrice(table.totalDue) : table.isOccupied ? "Waiting" : formatPrice(0)}
+                        {table.totalDue > 0
+                          ? formatCurrency(table.totalDue)
+                          : table.isOccupied
+                            ? t("cashier.waiting")
+                            : formatCurrency(0)}
                       </p>
                     </div>
                   </button>
@@ -492,7 +505,7 @@ export default function CashierPage({ session, onLogout }) {
                       onClick={() => openTablePopup(table.id, "order")}
                       type="button"
                     >
-                      Masa Ac
+                      {t("cashier.openTable")}
                     </button>
                   ) : null}
                 </div>
@@ -502,12 +515,9 @@ export default function CashierPage({ session, onLogout }) {
         ) : null}
 
         {!loading ? (
-          <SectionCard
-            title="Online orders"
-            description="Pickup and delivery orders that reached cashier queue."
-          >
+          <SectionCard title={t("cashier.onlineOrdersTitle")} description={t("cashier.onlineOrdersDescription")}>
             {onlineOrders.length === 0 ? (
-              <p className="text-sm text-slate-500">No online orders in cashier queue.</p>
+              <p className="text-sm text-slate-500">{t("cashier.noOnlineOrders")}</p>
             ) : (
               <div className="space-y-3">
                 {onlineOrders.map((order) => {
@@ -524,7 +534,7 @@ export default function CashierPage({ session, onLogout }) {
                           <p className="text-sm text-slate-500">{order.orderCode}</p>
                           <p className="font-semibold text-slate-900">{order.orderType}</p>
                           <p className="text-sm text-slate-600">
-                            <span className="font-semibold text-slate-950">{order.customerName || "Customer"}</span>
+                            <span className="font-semibold text-slate-950">{order.customerName || t("common.labels.customer")}</span>
                             {order.customerPhone ? <span className="text-slate-500"> · {order.customerPhone}</span> : null}
                           </p>
                           {deliveryAddress ? (
@@ -535,9 +545,9 @@ export default function CashierPage({ session, onLogout }) {
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${getStatusTone(order.status)}`}
                           >
-                            {STATUS_LABELS[order.status] || order.status}
+                            {translateOrderStatus(t, order.status)}
                           </span>
-                          <p className="mt-2 text-lg font-semibold text-slate-900">{formatPrice(order.totalPrice)}</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(order.totalPrice)}</p>
                         </div>
                       </div>
 
@@ -547,7 +557,7 @@ export default function CashierPage({ session, onLogout }) {
                             <p className="font-medium text-slate-900">
                               {item.quantity} x {item.name}
                             </p>
-                            {item.notes ? <p className="mt-0.5 text-xs text-slate-500">Not: {item.notes}</p> : null}
+                            {item.notes ? <p className="mt-0.5 text-xs text-slate-500">{t("cashier.itemNotes", { notes: item.notes })}</p> : null}
                           </div>
                         ))}
                       </div>
@@ -558,14 +568,14 @@ export default function CashierPage({ session, onLogout }) {
                           onClick={() => openPrint("kitchen", order)}
                           type="button"
                         >
-                          Mutfak Fişi Yazdır
+                          {t("cashier.printKitchen")}
                         </button>
                         <button
                           className={buttonStyles.secondary}
                           onClick={() => openPrint("customer", order)}
                           type="button"
                         >
-                          Müşteri Fişi Yazdır
+                          {t("cashier.printCustomer")}
                         </button>
                         {order.orderType === "PICKUP" && order.status === "READY" ? (
                           <>
@@ -575,7 +585,7 @@ export default function CashierPage({ session, onLogout }) {
                               onClick={() => checkoutPickupOrder(order.id, "CASH")}
                               type="button"
                             >
-                              {payingOrderId === order.id ? "Processing..." : "Nakit Öde & Teslim Et"}
+                              {payingOrderId === order.id ? t("common.actions.processing") : t("cashier.payCashPickup")}
                             </button>
                             <button
                               className={buttonStyles.primary}
@@ -583,7 +593,7 @@ export default function CashierPage({ session, onLogout }) {
                               onClick={() => checkoutPickupOrder(order.id, "CARD")}
                               type="button"
                             >
-                              {payingOrderId === order.id ? "Processing..." : "Kart Öde & Teslim Et"}
+                              {payingOrderId === order.id ? t("common.actions.processing") : t("cashier.payCardPickup")}
                             </button>
                             <button
                               className={buttonStyles.secondary}
@@ -591,7 +601,7 @@ export default function CashierPage({ session, onLogout }) {
                               onClick={() => updateOrderStatus(order.id, "COMPLETED")}
                               type="button"
                             >
-                              {updatingOrderId === order.id ? "Updating..." : "Teslim Edildi (ödeme alındı)"}
+                              {updatingOrderId === order.id ? t("common.actions.updating") : t("cashier.pickupDeliveredPaid")}
                             </button>
                           </>
                         ) : null}
@@ -604,9 +614,7 @@ export default function CashierPage({ session, onLogout }) {
                                 onClick={() => updateOrderStatus(order.id, status)}
                                 type="button"
                               >
-                                {updatingOrderId === order.id
-                                  ? "Updating..."
-                                  : STATUS_BUTTON_LABELS[status] || status}
+                                {updatingOrderId === order.id ? t("common.actions.updating") : getStatusButtonLabel(status)}
                               </button>
                             ))
                           : null}
@@ -621,21 +629,25 @@ export default function CashierPage({ session, onLogout }) {
 
         {openTable ? (
           <div className="cashier-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
-            <button aria-label="Close payment popup" className="absolute inset-0" onClick={closeTablePopup} type="button" />
+            <button aria-label={t("common.closePopup")} className="absolute inset-0" onClick={closeTablePopup} type="button" />
             <div className="cashier-modal-panel relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_32px_90px_rgba(15,23,42,0.32)] ring-1 ring-slate-200">
               <div className="border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(248,113,113,0.18),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(52,211,153,0.18),_transparent_38%),white] px-6 py-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Masa islemleri</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("cashier.tableModalTitle")}</p>
                     <h2 className="mt-2 text-3xl font-semibold text-slate-950">{openTable.name}</h2>
-                    <p className="mt-2 text-sm text-slate-600">Odeme alin veya masayi acip siparis ekleyin.</p>
+                    <p className="mt-2 text-sm text-slate-600">{t("cashier.tableModalDescription")}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusPill tone={openTable.readyOrderCount > 0 ? "warning" : openTable.isOccupied ? "danger" : "success"}>
-                      {openTable.readyOrderCount > 0 ? "Ready to pay" : openTable.isOccupied ? "Occupied" : "Empty"}
+                      {openTable.readyOrderCount > 0
+                        ? t("cashier.readyToPay")
+                        : openTable.isOccupied
+                          ? t("cashier.occupied")
+                          : t("common.empty")}
                     </StatusPill>
                     <button className={buttonStyles.secondary} onClick={closeTablePopup} type="button">
-                      Close
+                      {t("common.actions.close")}
                     </button>
                   </div>
                 </div>
@@ -645,14 +657,14 @@ export default function CashierPage({ session, onLogout }) {
                     onClick={() => setTablePanelMode("payment")}
                     type="button"
                   >
-                    Odeme
+                    {t("cashier.paymentTab")}
                   </button>
                   <button
                     className={tablePanelMode === "order" ? buttonStyles.primary : buttonStyles.secondary}
                     onClick={() => setTablePanelMode("order")}
                     type="button"
                   >
-                    Masa Ac / Siparis
+                    {t("cashier.orderTab")}
                   </button>
                 </div>
               </div>
@@ -661,8 +673,8 @@ export default function CashierPage({ session, onLogout }) {
                 {tablePanelMode === "order" ? (
                   <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <section className="rounded-3xl border border-slate-200 bg-white p-5">
-                      <h3 className="text-lg font-semibold text-slate-950">Urunler</h3>
-                      <p className="mt-1 text-sm text-slate-600">Urun secerek masaya siparis ekleyin.</p>
+                      <h3 className="text-lg font-semibold text-slate-950">{t("cashier.productsTitle")}</h3>
+                      <p className="mt-1 text-sm text-slate-600">{t("cashier.productsDescription")}</p>
                       <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
                         {products.map((product) => (
                           <button
@@ -675,16 +687,16 @@ export default function CashierPage({ session, onLogout }) {
                               <p className="font-medium text-slate-900">{product.name}</p>
                               <p className="mt-1 text-xs text-slate-500">{product.category}</p>
                             </div>
-                            <span className="text-sm font-semibold text-slate-900">{formatPrice(product.price)}</span>
+                            <span className="text-sm font-semibold text-slate-900">{formatCurrency(product.price)}</span>
                           </button>
                         ))}
                       </div>
                     </section>
 
                     <section className="rounded-3xl border border-slate-200 bg-white p-5">
-                      <h3 className="text-lg font-semibold text-slate-950">Taslak siparis</h3>
+                      <h3 className="text-lg font-semibold text-slate-950">{t("cashier.draftOrderTitle")}</h3>
                       <p className="mt-1 text-sm text-slate-600">
-                        {pendingTableOrder ? pendingTableOrder.orderCode : "Yeni masa"}
+                        {pendingTableOrder ? pendingTableOrder.orderCode : t("cashier.newTable")}
                       </p>
                       <div className="mt-4 space-y-3">
                         {draftItems.map((item) => (
@@ -705,18 +717,22 @@ export default function CashierPage({ session, onLogout }) {
                         ))}
                         {draftItems.length === 0 ? (
                           <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
-                            Henuz urun eklenmedi.
+                            {t("cashier.noDraftItems")}
                           </p>
                         ) : null}
                       </div>
-                      <p className="mt-4 text-lg font-semibold text-slate-950">Toplam: {formatPrice(draftTotal)}</p>
+                      <p className="mt-4 text-lg font-semibold text-slate-950">{t("cashier.totalLabel", { total: formatCurrency(draftTotal) })}</p>
                       <button
                         className={`${buttonStyles.primary} mt-4 w-full`}
                         disabled={savingOrder}
                         onClick={saveTableOrder}
                         type="button"
                       >
-                        {savingOrder ? "Kaydediliyor..." : pendingTableOrder ? "Siparisi Guncelle" : "Masayi Ac ve Gonder"}
+                        {savingOrder
+                          ? t("cashier.savingDraft")
+                          : pendingTableOrder
+                            ? t("cashier.updateDraft")
+                            : t("cashier.openAndSend")}
                       </button>
                     </section>
                   </div>
@@ -724,16 +740,18 @@ export default function CashierPage({ session, onLogout }) {
                   <>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Status</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-950">{openTable.isOccupied ? "Occupied" : "Empty"}</p>
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{t("common.labels.status")}</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-950">
+                      {openTable.isOccupied ? t("cashier.occupied") : t("common.empty")}
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Ready orders</p>
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{t("cashier.readyOrders")}</p>
                     <p className="mt-2 text-lg font-semibold text-slate-950">{openTableOrders.length}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Due now</p>
-                    <p className="cashier-total-pop mt-2 text-2xl font-semibold text-slate-950">{formatPrice(openTableTotal)}</p>
+                    <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{t("cashier.dueNow")}</p>
+                    <p className="cashier-total-pop mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(openTableTotal)}</p>
                   </div>
                 </div>
 
@@ -747,7 +765,7 @@ export default function CashierPage({ session, onLogout }) {
                               <p className="text-sm font-semibold text-slate-900">{order.orderCode}</p>
                               <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">{order.source}</p>
                             </div>
-                            <p className="text-lg font-semibold text-slate-950">{formatPrice(order.totalPrice)}</p>
+                            <p className="text-lg font-semibold text-slate-950">{formatCurrency(order.totalPrice)}</p>
                           </div>
 
                           <div className="mt-3 space-y-2">
@@ -767,14 +785,14 @@ export default function CashierPage({ session, onLogout }) {
                               onClick={() => openPrint("kitchen", order)}
                               type="button"
                             >
-                              Mutfak Fişi Yazdır
+                              {t("cashier.printKitchen")}
                             </button>
                             <button
                               className={buttonStyles.secondary}
                               onClick={() => openPrint("customer", order)}
                               type="button"
                             >
-                              Müşteri Fişi Yazdır
+                              {t("cashier.printCustomer")}
                             </button>
                           </div>
                         </article>
@@ -790,7 +808,7 @@ export default function CashierPage({ session, onLogout }) {
                       >
                         <span className="flex items-center gap-2">
                           <span className="h-2.5 w-2.5 rounded-full bg-slate-700 animate-pulse" />
-                          {checkingOutTableId === openTable.id ? "Processing..." : "Pay with Card"}
+                          {checkingOutTableId === openTable.id ? t("common.actions.processing") : t("cashier.payWithCard")}
                         </span>
                       </button>
                       <button
@@ -801,16 +819,14 @@ export default function CashierPage({ session, onLogout }) {
                       >
                         <span className="flex items-center gap-2">
                           <span className="h-2.5 w-2.5 rounded-full bg-white/90 animate-pulse" />
-                          {checkingOutTableId === openTable.id ? "Processing..." : "Pay with Cash"}
+                          {checkingOutTableId === openTable.id ? t("common.actions.processing") : t("cashier.payWithCash")}
                         </span>
                       </button>
                     </div>
                   </>
                 ) : (
                   <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                    {openTable.isOccupied
-                      ? "This table is still active, but no dine-in order is ready for payment yet."
-                      : "This table is empty."}
+                    {openTable.isOccupied ? t("cashier.tableStillActive") : t("cashier.emptyTable")}
                   </div>
                 )}
                   </>

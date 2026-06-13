@@ -13,8 +13,11 @@ const CATEGORY_KEY_MAP = {
 
 const ORDER_STATUS_KEY_MAP = {
   PENDING: "common.orderStatus.pending",
+  ACCEPTED: "common.orderStatus.accepted",
   PREPARING: "common.orderStatus.preparing",
   READY: "common.orderStatus.ready",
+  ON_THE_WAY: "common.orderStatus.onTheWay",
+  COMPLETED: "common.orderStatus.completed",
   PAID: "common.orderStatus.paid",
   CANCELLED: "common.orderStatus.cancelled",
   FULFILLED: "common.orderStatus.fulfilled",

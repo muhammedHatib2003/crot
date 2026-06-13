@@ -1,3 +1,4 @@
+import useAppTranslation from "../../hooks/useAppTranslation";
 import {
   formatPrintCurrency,
   formatPrintDateTime,
@@ -30,29 +31,31 @@ function getPaymentLabel(order) {
   return String(method).toUpperCase();
 }
 
-function getPaymentStatusLabel(order) {
+function getPaymentStatusLabel(order, t) {
   const status = String(order?.paymentStatus || "").trim().toUpperCase();
   if (!status) {
-    return "-";
+    return t("common.notAvailable");
   }
   if (status === "PAID") {
-    return "Ödendi";
+    return t("print.paymentStatus.paid");
   }
   if (status === "PENDING") {
-    return "Bekliyor";
+    return t("print.paymentStatus.pending");
   }
   if (status === "FAILED") {
-    return "Başarısız";
+    return t("print.paymentStatus.failed");
   }
   return status;
 }
 
 export default function CustomerReceiptPrint({ order, restaurant }) {
+  const { t } = useAppTranslation();
+
   if (!order) {
     return null;
   }
 
-  const restaurantName = restaurant?.name || order?.restaurant?.name || "Restoran";
+  const restaurantName = restaurant?.name || order?.restaurant?.name || t("print.restaurantFallback");
   const items = getOrderItems(order);
   const orderTypeLabel = getOrderTypeLabel(order);
   const locationLabel = getOrderLocationLabel(order);
@@ -95,31 +98,31 @@ export default function CustomerReceiptPrint({ order, restaurant }) {
     <article className="print-ticket print-ticket--customer">
       <header className="print-ticket__header">
         <h1 className="print-ticket__restaurant">{restaurantName}</h1>
-        <p className="print-ticket__subtitle">MUSTERI FISI</p>
+        <p className="print-ticket__subtitle">{t("print.customerReceipt")}</p>
       </header>
 
       <section className="print-ticket__meta">
         <div className="print-ticket__row">
-          <span className="print-ticket__label">Sipariş</span>
+          <span className="print-ticket__label">{t("print.order")}</span>
           <span className="print-ticket__value print-ticket__value--strong">
             {order.orderCode || order.id}
           </span>
         </div>
         <div className="print-ticket__row">
-          <span className="print-ticket__label">Tarih</span>
+          <span className="print-ticket__label">{t("print.date")}</span>
           <span className="print-ticket__value">{formatPrintDateTime(order.createdAt)}</span>
         </div>
         <div className="print-ticket__row">
-          <span className="print-ticket__label">Tip</span>
+          <span className="print-ticket__label">{t("print.type")}</span>
           <span className="print-ticket__value">{orderTypeLabel}</span>
         </div>
         <div className="print-ticket__row">
-          <span className="print-ticket__label">Konum</span>
+          <span className="print-ticket__label">{t("print.location")}</span>
           <span className="print-ticket__value">{locationLabel}</span>
         </div>
         {order.customerName ? (
           <div className="print-ticket__row">
-            <span className="print-ticket__label">Müşteri</span>
+            <span className="print-ticket__label">{t("print.customer")}</span>
             <span className="print-ticket__value">{order.customerName}</span>
           </div>
         ) : null}
@@ -129,17 +132,17 @@ export default function CustomerReceiptPrint({ order, restaurant }) {
 
       <section className="print-ticket__items print-ticket__items--receipt">
         <div className="print-ticket__items-header">
-          <span className="print-ticket__col print-ticket__col--qty">Adet</span>
-          <span className="print-ticket__col print-ticket__col--name">Ürün</span>
-          <span className="print-ticket__col print-ticket__col--price">Birim</span>
-          <span className="print-ticket__col print-ticket__col--total">Tutar</span>
+          <span className="print-ticket__col print-ticket__col--qty">{t("print.qty")}</span>
+          <span className="print-ticket__col print-ticket__col--name">{t("print.product")}</span>
+          <span className="print-ticket__col print-ticket__col--price">{t("print.unitPrice")}</span>
+          <span className="print-ticket__col print-ticket__col--total">{t("print.amount")}</span>
         </div>
         {items.length === 0 ? (
-          <p className="print-ticket__empty">Ürün yok</p>
+          <p className="print-ticket__empty">{t("print.noItems")}</p>
         ) : (
           items.map((item, index) => {
             const itemKey = item.id || `${item.name || item.productName || "item"}-${index}`;
-            const itemName = item.name || item.productName || item.productNameSnapshot || "Ürün";
+            const itemName = item.name || item.productName || item.productNameSnapshot || t("print.productFallback");
             const unitPrice = getOrderUnitPrice(item);
             const qty = Number(item?.quantity || 0);
             const lineTotal = unitPrice * qty;
@@ -164,14 +167,14 @@ export default function CustomerReceiptPrint({ order, restaurant }) {
 
       <section className="print-ticket__totals">
         <div className="print-ticket__row">
-          <span className="print-ticket__label">Ara Toplam</span>
+          <span className="print-ticket__label">{t("print.subtotal")}</span>
           <span className="print-ticket__value">
             {formatPrintCurrency(subtotal)} {currency}
           </span>
         </div>
         {deliveryFee > 0 ? (
           <div className="print-ticket__row">
-            <span className="print-ticket__label">Teslimat</span>
+            <span className="print-ticket__label">{t("print.delivery")}</span>
             <span className="print-ticket__value">
               {formatPrintCurrency(deliveryFee)} {currency}
             </span>
@@ -179,7 +182,7 @@ export default function CustomerReceiptPrint({ order, restaurant }) {
         ) : null}
         {discount > 0 ? (
           <div className="print-ticket__row">
-            <span className="print-ticket__label">İndirim</span>
+            <span className="print-ticket__label">{t("print.discount")}</span>
             <span className="print-ticket__value">
               - {formatPrintCurrency(discount)} {currency}
             </span>
@@ -187,22 +190,22 @@ export default function CustomerReceiptPrint({ order, restaurant }) {
         ) : null}
         {tax > 0 ? (
           <div className="print-ticket__row">
-            <span className="print-ticket__label">Vergi</span>
+            <span className="print-ticket__label">{t("print.tax")}</span>
             <span className="print-ticket__value">
               {formatPrintCurrency(tax)} {currency}
             </span>
           </div>
         ) : null}
         <div className="print-ticket__row print-ticket__row--total">
-          <span className="print-ticket__label print-ticket__label--strong">TOPLAM</span>
+          <span className="print-ticket__label print-ticket__label--strong">{t("print.total")}</span>
           <span className="print-ticket__value print-ticket__value--strong">
             {formatPrintCurrency(total)} {currency}
           </span>
         </div>
         <div className="print-ticket__row">
-          <span className="print-ticket__label">Ödeme</span>
+          <span className="print-ticket__label">{t("print.payment")}</span>
           <span className="print-ticket__value">
-            {paymentLabel ? `${paymentLabel} - ${getPaymentStatusLabel(order)}` : getPaymentStatusLabel(order)}
+            {paymentLabel ? `${paymentLabel} - ${getPaymentStatusLabel(order, t)}` : getPaymentStatusLabel(order, t)}
           </span>
         </div>
       </section>
@@ -210,8 +213,8 @@ export default function CustomerReceiptPrint({ order, restaurant }) {
       <div className="print-ticket__divider" />
 
       <footer className="print-ticket__thanks">
-        <p>Bizi tercih ettiğiniz için teşekkürler.</p>
-        <p>Afiyet olsun!</p>
+        <p>{t("print.thanks")}</p>
+        <p>{t("print.enjoy")}</p>
       </footer>
     </article>
   );

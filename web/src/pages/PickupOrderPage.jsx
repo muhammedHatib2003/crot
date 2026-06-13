@@ -11,6 +11,7 @@ import {
   getPickupOrderPathCandidates,
   getPickupOrdersPathCandidates
 } from "../utils/pickupApi";
+import useAppTranslation from "../hooks/useAppTranslation";
 import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
 const TERMINAL_STATUSES = new Set(["PAID", "COMPLETED", "CANCELLED", "REJECTED"]);
@@ -20,6 +21,7 @@ function getAvailabilityClasses(item) {
 }
 
 export default function PickupOrderPage() {
+  const { t } = useAppTranslation();
   const { tenantSlug } = useParams();
   const menuPathCandidates = useMemo(() => getPickupMenuPathCandidates(tenantSlug), [tenantSlug]);
   const ordersPathCandidates = useMemo(() => getPickupOrdersPathCandidates(tenantSlug), [tenantSlug]);
@@ -223,12 +225,12 @@ export default function PickupOrderPage() {
     setSubmitMessage("");
 
     if (cartItems.length === 0) {
-      setSubmitError("Add at least one item to your order.");
+      setSubmitError(t("common.errors.addOneItem"));
       return;
     }
 
     if (!customerName.trim() || !customerPhone.trim()) {
-      setSubmitError("Name and phone are required for pickup orders.");
+      setSubmitError(t("common.errors.nameAndPhoneRequired"));
       return;
     }
 
@@ -254,7 +256,7 @@ export default function PickupOrderPage() {
 
       setActiveOrder(result.order);
       persistOrderId(result.order?.publicId);
-      setSubmitMessage(result.message || "Pickup order placed successfully.");
+      setSubmitMessage(result.message || t("pickup.orderPlaced"));
       setCart({});
       setNotes("");
       await loadMenu();
@@ -269,24 +271,21 @@ export default function PickupOrderPage() {
   }
 
   if (loading) {
-    return <div className="p-8 text-center text-slate-700">Loading menu...</div>;
+    return <div className="p-8 text-center text-slate-700">{t("pickup.loading")}</div>;
   }
 
   if (error) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-800">
-          <p className="text-lg font-semibold">Pickup unavailable</p>
+          <p className="text-lg font-semibold">{t("pickup.unavailable.title")}</p>
           <p className="mt-2 text-sm">{error}</p>
           <p className="mt-3 text-xs text-rose-700/90">
-            Slug: <span className="font-mono font-semibold">/{tenantSlug}/menu</span>
+            {t("pickup.unavailable.slug", { slug: tenantSlug })}
             <br />
-            API: {getApiBaseUrl()}
-            {menuPathCandidates[0]}
+            {t("pickup.unavailable.api", { baseUrl: getApiBaseUrl(), path: menuPathCandidates[0] })}
           </p>
-          <p className="mt-3 text-xs text-rose-600">
-            Owner panel → Settings: pickup slug, active plan, Public dine-in ordering and Pickup ordering enabled.
-          </p>
+          <p className="mt-3 text-xs text-rose-600">{t("pickup.unavailable.settingsHint")}</p>
         </div>
       </div>
     );
@@ -301,14 +300,14 @@ export default function PickupOrderPage() {
           <div className="flex items-start gap-4">
             <RestaurantLogo className="h-16 w-16 shrink-0 text-lg" name={restaurant?.name} src={restaurant?.logoUrl} />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">Gel-Al Menü</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">{t("pickup.eyebrow")}</p>
               <h1 className="mt-2 text-3xl font-bold text-brand-900">{restaurant?.name}</h1>
-              <p className="mt-1 text-sm text-slate-600">Sipariş verin, hazır olunca restorandan teslim alın.</p>
+              <p className="mt-1 text-sm text-slate-600">{t("pickup.description")}</p>
             </div>
           </div>
           <div className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-900">
-            <p className="font-semibold">Pickup</p>
-            <p className="text-brand-700">/{restaurant?.slug}</p>
+            <p className="font-semibold">{t("pickup.summaryTitle")}</p>
+            <p className="text-brand-700">{t("pickup.tenantLabel", { slug: restaurant?.slug })}</p>
           </div>
         </div>
       </header>
@@ -322,10 +321,8 @@ export default function PickupOrderPage() {
 
       {activeOrder && !TERMINAL_STATUSES.has(activeOrder.status) ? (
         <div className="mb-4 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
-          <p className="font-semibold">Siparişiniz canlı takip ediliyor</p>
-          <p className="mt-1 text-brand-800">
-            Durum ekranı aşağıda ve sağdaki panelde görünür. Sayfa her {FAST_POLL_MS / 1000} saniyede otomatik güncellenir.
-          </p>
+          <p className="font-semibold">{t("pickup.liveTracking.title")}</p>
+          <p className="mt-1 text-brand-800">{t("pickup.liveTracking.description", { seconds: FAST_POLL_MS / 1000 })}</p>
         </div>
       ) : null}
 
@@ -347,11 +344,11 @@ export default function PickupOrderPage() {
             <section className="rounded-3xl bg-white p-5 shadow-md">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Menü</p>
-                  <h2 className="mt-2 text-2xl font-bold text-slate-900">Ürün seçin</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("pickup.menuLabel")}</p>
+                  <h2 className="mt-2 text-2xl font-bold text-slate-900">{t("pickup.chooseItems")}</h2>
                 </div>
                 <div className="rounded-2xl bg-brand-50 px-4 py-3 text-right">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">Kategori</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-700">{t("common.labels.category")}</p>
                   <p className="mt-1 text-lg font-bold text-brand-900">{activeCategory || "—"}</p>
                 </div>
               </div>
@@ -372,7 +369,7 @@ export default function PickupOrderPage() {
                       onClick={() => setActiveCategory(category)}
                     >
                       <p className="text-sm font-semibold">{category}</p>
-                      <p className={`text-xs ${isActive ? "text-white/80" : "text-slate-500"}`}>{items.length} ürün</p>
+                      <p className={`text-xs ${isActive ? "text-white/80" : "text-slate-500"}`}>{t("pickup.productCount", { count: items.length })}</p>
                     </button>
                   );
                 })}
@@ -394,14 +391,14 @@ export default function PickupOrderPage() {
                         alt={item.name}
                         className="h-44 w-full object-cover"
                         fallbackClassName="flex h-44 w-full items-center justify-center bg-slate-200 text-xs text-slate-500"
-                        fallback="No Photo"
+                        fallback={t("pickup.noPhoto")}
                         src={item.photoUrl}
                       />
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <h3 className="text-lg font-semibold text-slate-900">{item.name}</h3>
-                            <p className="mt-2 text-sm text-slate-600">{item.description || "Taze hazırlanır."}</p>
+                            <p className="mt-2 text-sm text-slate-600">{item.description || t("pickup.defaultDescription")}</p>
                             <span
                               className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${getAvailabilityClasses(item)}`}
                             >
@@ -438,7 +435,7 @@ export default function PickupOrderPage() {
                             disabled={isDisabled}
                             onClick={() => increaseQuantity(item.id)}
                           >
-                            {isDisabled ? "Unavailable" : quantity > 0 ? "Add more" : "Add to cart"}
+                            {isDisabled ? t("pickup.itemUnavailable") : quantity > 0 ? t("pickup.addMore") : t("pickup.addToCart")}
                           </button>
                         </div>
                       </div>
@@ -449,7 +446,7 @@ export default function PickupOrderPage() {
             </section>
           ) : (
             <section className="rounded-3xl bg-white p-5 shadow-md">
-              <p className="text-sm text-slate-500">No available menu items.</p>
+              <p className="text-sm text-slate-500">{t("pickup.emptyMenuItems")}</p>
             </section>
           )}
         </section>
@@ -470,8 +467,8 @@ export default function PickupOrderPage() {
           <div className="rounded-3xl bg-white p-5 shadow-md">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Sepet</p>
-                <h2 className="text-xl font-bold text-slate-900">{cartItems.length} ürün</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("pickup.cartLabel")}</p>
+                <h2 className="text-xl font-bold text-slate-900">{t("pickup.cartItemsCount", { count: cartItems.length })}</h2>
               </div>
               <p className="text-lg font-bold text-brand-900">{formatTryCurrency(cartTotal)}</p>
             </div>
@@ -493,37 +490,37 @@ export default function PickupOrderPage() {
 
               {cartItems.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-                  Sepet boş. Menüden ürün ekleyerek sipariş verin.
+                  {t("pickup.emptyCartPrompt")}
                 </div>
               ) : null}
             </div>
 
             <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Ad Soyad</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">{t("pickup.customerName")}</label>
                 <input
                   required
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
-                  placeholder="Adınız"
+                  placeholder={t("pickup.customerNamePlaceholder")}
                   value={customerName}
                   onChange={(event) => setCustomerName(event.target.value)}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Telefon</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">{t("pickup.customerPhone")}</label>
                 <input
                   required
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
-                  placeholder="05xx xxx xx xx"
+                  placeholder={t("pickup.phonePlaceholder")}
                   value={customerPhone}
                   onChange={(event) => setCustomerPhone(event.target.value)}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Sipariş notu</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">{t("pickup.orderNotes")}</label>
                 <textarea
                   className="min-h-24 w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
-                  placeholder="Alerji, acısız..."
+                  placeholder={t("pickup.orderNotesPlaceholderShort")}
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                 />
@@ -533,7 +530,7 @@ export default function PickupOrderPage() {
                 type="submit"
                 className="w-full rounded-xl bg-brand-700 px-4 py-3 font-semibold text-white hover:bg-brand-900 disabled:opacity-60"
               >
-                {submitting ? "Gönderiliyor..." : `Sipariş ver — ${formatTryCurrency(cartTotal)}`}
+                {submitting ? t("pickup.submitting") : t("pickup.submit", { total: formatTryCurrency(cartTotal) })}
               </button>
             </form>
           </div>

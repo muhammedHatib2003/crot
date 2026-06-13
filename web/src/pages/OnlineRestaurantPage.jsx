@@ -13,11 +13,10 @@ import {
 } from "../utils/onlineCart";
 import { readOnlineLocationContext } from "../utils/onlineLocation";
 import { formatTryCurrency } from "../utils/currency";
-
-const DIFFERENT_RESTAURANT_MESSAGE =
-  "Sepetinizde baska restorana ait urunler var. Sepeti temizleyip devam etmek ister misiniz?";
+import useAppTranslation from "../hooks/useAppTranslation";
 
 export default function OnlineRestaurantPage() {
+  const { t } = useAppTranslation();
   const { restaurantSlug } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -109,7 +108,7 @@ export default function OnlineRestaurantPage() {
 
     const nextCart = addToOnlineCart(cart, restaurant, product, 1);
     if (nextCart.conflictRestaurant) {
-      const shouldReset = window.confirm(DIFFERENT_RESTAURANT_MESSAGE);
+      const shouldReset = window.confirm(t("onlineRestaurant.cartConflict"));
       if (!shouldReset) {
         return;
       }
@@ -146,7 +145,7 @@ export default function OnlineRestaurantPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      {loading ? <div className="rounded-2xl bg-white p-6 text-slate-600 shadow-sm">Menu yukleniyor...</div> : null}
+      {loading ? <div className="rounded-2xl bg-white p-6 text-slate-600 shadow-sm">{t("onlineRestaurant.loadingMenu")}</div> : null}
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div> : null}
 
       {!loading && !error ? (
@@ -159,18 +158,19 @@ export default function OnlineRestaurantPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <Link className="text-sm font-medium text-brand-700 hover:text-brand-900" to="/online-order">
-                    Tum restoranlar
+                    {t("onlineRestaurant.allRestaurants")}
                   </Link>
                   <h1 className="mt-2 text-2xl font-semibold text-slate-900">{restaurant?.name}</h1>
-                  <p className="mt-1 text-sm text-slate-600">{restaurant?.description || "Menuyu inceleyin ve urun ekleyin."}</p>
+                  <p className="mt-1 text-sm text-slate-600">{restaurant?.description || t("onlineRestaurant.defaultDescription")}</p>
                   <p className="mt-1 text-xs text-slate-500">{[restaurant?.city, restaurant?.district].filter(Boolean).join(" / ")}</p>
                 </div>
                 <div className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-700">
-                  <p>Minimum: {formatTryCurrency(restaurant?.minimumOrderAmount || 0)}</p>
-                  <p>Teslimat: {formatTryCurrency(restaurant?.deliveryFee || 0)}</p>
-                  <p>Tahmini sure: {restaurant?.estimatedDeliveryMinutes || 0} dk</p>
+                  <p>{t("onlineRestaurant.minimum", { amount: formatTryCurrency(restaurant?.minimumOrderAmount || 0) })}</p>
+                  <p>{t("onlineRestaurant.delivery", { amount: formatTryCurrency(restaurant?.deliveryFee || 0) })}</p>
+                  <p>{t("onlineRestaurant.estimatedTime", { minutes: restaurant?.estimatedDeliveryMinutes || 0 })}</p>
                   <p>
-                    Durum: {restaurant?.isCurrentlyOpen ? "Acik" : "Kapali"}
+                    {t("onlineRestaurant.statusLabel")}{" "}
+                    {restaurant?.isCurrentlyOpen ? t("onlineRestaurant.statusOpen") : t("onlineRestaurant.statusClosed")}
                   </p>
                 </div>
               </div>
@@ -179,12 +179,12 @@ export default function OnlineRestaurantPage() {
 
           {!restaurant?.isCurrentlyOpen ? (
             <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Restoran su an kapali. Menuyu gorebilirsiniz ancak siparis veremezsiniz.
+              {t("onlineRestaurant.closedWarning")}
             </div>
           ) : null}
           {restaurant?.inDeliveryZone === false ? (
             <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              Secili konumunuz bu restoranin teslimat alaninin disinda. Siparis veremezsiniz.
+              {t("onlineRestaurant.outOfZoneWarning")}
             </div>
           ) : null}
 
@@ -202,7 +202,7 @@ export default function OnlineRestaurantPage() {
               ))}
 
               {categories.length === 0 ? (
-                <div className="rounded-2xl bg-white p-6 text-sm text-slate-600 shadow-sm">Bu restoranda aktif menu urunu bulunmuyor.</div>
+                <div className="rounded-2xl bg-white p-6 text-sm text-slate-600 shadow-sm">{t("onlineRestaurant.emptyMenu")}</div>
               ) : null}
             </section>
 
@@ -224,7 +224,7 @@ export default function OnlineRestaurantPage() {
                       }`}
                       to={`/online-order/${restaurantSlug}/cart`}
                     >
-                      Siparisi Tamamla
+                      {t("onlineRestaurant.completeOrder")}
                     </Link>
                   }
                 />

@@ -2,30 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { apiRequest } from "../api";
 import RestaurantLogo from "../components/RestaurantLogo";
+import useAppTranslation from "../hooks/useAppTranslation";
 import { getDisplayOrdersPathCandidates } from "../utils/displayApi";
 import { apiRequestWithPathFallback } from "../utils/pickupApi";
 import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
-function formatClock(value = new Date()) {
-  return new Date(value).toLocaleTimeString("tr-TR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  });
-}
-
-function formatUpdatedAt(value) {
-  if (!value) {
-    return "—";
-  }
-
-  return new Date(value).toLocaleTimeString("tr-TR", {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function DisplayOrderCard({ order, tone }) {
+function DisplayOrderCard({ order, tone, formatTime }) {
   const toneClasses = {
     preparing: "border-amber-300 bg-amber-50",
     ready: "border-emerald-400 bg-emerald-50",
@@ -54,7 +36,7 @@ function DisplayOrderCard({ order, tone }) {
           </p>
         </div>
         <p className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-sm">
-          {formatUpdatedAt(order.updatedAt)}
+          {formatTime(order.updatedAt, { hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>
       <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{order.statusLabel}</p>
@@ -62,7 +44,7 @@ function DisplayOrderCard({ order, tone }) {
   );
 }
 
-function StatusColumn({ title, subtitle, orders, tone, emptyLabel }) {
+function StatusColumn({ title, subtitle, orders, tone, emptyLabel, ordersCountLabel, formatTime }) {
   const headerClasses = {
     preparing: "from-amber-100 to-amber-50 border-amber-300",
     ready: "from-emerald-100 to-emerald-50 border-emerald-400",
@@ -80,7 +62,7 @@ function StatusColumn({ title, subtitle, orders, tone, emptyLabel }) {
       <header className={`rounded-2xl border bg-gradient-to-r px-4 py-4 ${headerClasses[tone]}`}>
         <p className={`text-2xl font-black sm:text-3xl ${titleClasses[tone]}`}>{title}</p>
         <p className="mt-1 text-sm font-medium text-slate-600">{subtitle}</p>
-        <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">{orders.length} orders</p>
+        <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-500">{ordersCountLabel}</p>
       </header>
 
       <div className="mt-4 flex-1 space-y-3 overflow-y-auto pr-1">
@@ -89,7 +71,7 @@ function StatusColumn({ title, subtitle, orders, tone, emptyLabel }) {
             {emptyLabel}
           </div>
         ) : (
-          orders.map((order) => <DisplayOrderCard key={order.id} order={order} tone={tone} />)
+          orders.map((order) => <DisplayOrderCard formatTime={formatTime} key={order.id} order={order} tone={tone} />)
         )}
       </div>
     </section>
@@ -97,6 +79,7 @@ function StatusColumn({ title, subtitle, orders, tone, emptyLabel }) {
 }
 
 export default function OrderStatusScreenPage() {
+  const { t, formatTime } = useAppTranslation();
   const { restaurantSlug } = useParams();
   const pathCandidates = useMemo(() => getDisplayOrdersPathCandidates(restaurantSlug), [restaurantSlug]);
   const [payload, setPayload] = useState(null);
@@ -148,7 +131,7 @@ export default function OrderStatusScreenPage() {
   if (loading && !payload) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-700">
-        <p className="text-lg">Loading order status screen...</p>
+        <p className="text-lg">{t("oss.loading")}</p>
       </div>
     );
   }
@@ -157,9 +140,9 @@ export default function OrderStatusScreenPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 px-6 text-center text-slate-900">
         <div className="max-w-lg rounded-3xl border border-rose-200 bg-white p-8 shadow-sm">
-          <p className="text-xl font-bold text-rose-700">Order Status Screen unavailable</p>
+          <p className="text-xl font-bold text-rose-700">{t("oss.unavailable")}</p>
           <p className="mt-3 text-sm text-slate-600">{error}</p>
-          <p className="mt-4 text-xs text-slate-500">URL: /display/{restaurantSlug}</p>
+          <p className="mt-4 text-xs text-slate-500">{t("oss.urlHint", { slug: restaurantSlug })}</p>
         </div>
       </div>
     );
@@ -172,39 +155,47 @@ export default function OrderStatusScreenPage() {
           <div className="flex items-center gap-4">
             <RestaurantLogo className="h-14 w-14 text-lg" name={restaurant?.name} src={restaurant?.logoUrl} />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">Order Status Screen</p>
-              <h1 className="text-2xl font-black sm:text-3xl">{restaurant?.name || "Restaurant"}</h1>
-              <p className="mt-1 text-sm text-slate-500">Pickup / counter orders · today only</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">{t("oss.eyebrow")}</p>
+              <h1 className="text-2xl font-black sm:text-3xl">{restaurant?.name || t("common.restaurantFallback")}</h1>
+              <p className="mt-1 text-sm text-slate-500">{t("oss.subtitle")}</p>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-3xl font-black tabular-nums text-slate-900 sm:text-4xl">{formatClock(clock)}</p>
+            <p className="text-3xl font-black tabular-nums text-slate-900 sm:text-4xl">
+              {formatTime(clock, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </p>
             <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">
-              Auto refresh every {FAST_POLL_MS / 1000}s
+              {t("oss.autoRefresh", { seconds: FAST_POLL_MS / 1000 })}
             </p>
           </div>
         </header>
 
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
           <StatusColumn
-            emptyLabel="No orders preparing"
+            emptyLabel={t("oss.columns.preparing.empty")}
+            formatTime={formatTime}
             orders={groups.preparing}
-            subtitle="Preparing"
-            title="Hazırlanıyor"
+            ordersCountLabel={t("oss.ordersCount", { count: groups.preparing.length })}
+            subtitle={t("oss.columns.preparing.subtitle")}
+            title={t("oss.columns.preparing.title")}
             tone="preparing"
           />
           <StatusColumn
-            emptyLabel="No orders ready"
+            emptyLabel={t("oss.columns.ready.empty")}
+            formatTime={formatTime}
             orders={groups.ready}
-            subtitle="Ready for pickup"
-            title="Hazır"
+            ordersCountLabel={t("oss.ordersCount", { count: groups.ready.length })}
+            subtitle={t("oss.columns.ready.subtitle")}
+            title={t("oss.columns.ready.title")}
             tone="ready"
           />
           <StatusColumn
-            emptyLabel="No completed orders yet"
+            emptyLabel={t("oss.columns.completed.empty")}
+            formatTime={formatTime}
             orders={groups.completed}
-            subtitle="Recently completed"
-            title="Teslim Edildi"
+            ordersCountLabel={t("oss.ordersCount", { count: groups.completed.length })}
+            subtitle={t("oss.columns.completed.subtitle")}
+            title={t("oss.columns.completed.title")}
             tone="completed"
           />
         </main>

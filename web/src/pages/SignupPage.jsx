@@ -1,11 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 import { apiRequest } from "../api";
+import GlobalLanguageBar from "../components/app/GlobalLanguageBar";
 import { getDefaultRoute } from "../auth";
+import useAppTranslation from "../hooks/useAppTranslation";
 
 export default function SignupPage({ onLogin }) {
-  const { t } = useTranslation();
+  const { t } = useAppTranslation();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: "",
@@ -42,7 +43,8 @@ export default function SignupPage({ onLogin }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
+      <GlobalLanguageBar />
       <div className="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl shadow-brand-100/70">
         <h1 className="text-2xl font-bold text-brand-900">{t("auth.signup.title")}</h1>
         <p className="mt-2 text-sm text-slate-600">{t("auth.signup.description")}</p>

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { startIyzicoCheckout } from "../api";
+import useAppTranslation from "../hooks/useAppTranslation";
 
 export default function PaymentStartPage({ customerSession }) {
+  const { t } = useAppTranslation();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const orderId = searchParams.get("orderId") || "";
@@ -34,9 +36,9 @@ export default function PaymentStartPage({ customerSession }) {
         return;
       }
 
-      setError("Iyzico odeme sayfasi alinamadi.");
+      setError(t("payment.pageNotRetrieved"));
     } catch (requestError) {
-      setError(requestError.message || "Odeme baslatilamadi.");
+      setError(requestError.message || t("payment.startFailed"));
     } finally {
       setLoading(false);
     }
@@ -63,10 +65,10 @@ export default function PaymentStartPage({ customerSession }) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h1 className="text-xl font-semibold text-slate-900">Odeme</h1>
-          <p className="mt-2 text-sm text-rose-700">Siparis bulunamadi (orderId yok).</p>
+          <h1 className="text-xl font-semibold text-slate-900">{t("payment.title")}</h1>
+          <p className="mt-2 text-sm text-rose-700">{t("payment.missingOrderId")}</p>
           <Link className="mt-4 inline-block text-sm font-medium text-brand-700 hover:text-brand-900" to="/online-order/my-orders">
-            Siparislerime don
+            {t("payment.backToOrders")}
           </Link>
         </div>
       </div>
@@ -76,10 +78,8 @@ export default function PaymentStartPage({ customerSession }) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-6 rounded-2xl bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Iyzico ile odeme</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Sandbox modu. Test kartlari ile odeme yapabilirsiniz.
-        </p>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("payment.checkoutTitle")}</h1>
+        <p className="mt-1 text-sm text-slate-600">{t("payment.sandboxHint")}</p>
       </header>
 
       {error ? (
@@ -92,7 +92,7 @@ export default function PaymentStartPage({ customerSession }) {
         {!checkoutFormHtml ? (
           <div className="flex flex-col items-start gap-3">
             <p className="text-sm text-slate-600">
-              {loading ? "Odeme sayfasi hazirlaniyor..." : "Odeme sayfasini baslatmak icin Odemeye Git butonuna basin."}
+              {loading ? t("payment.preparingPage") : t("payment.startHint")}
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -101,21 +101,19 @@ export default function PaymentStartPage({ customerSession }) {
                 onClick={startPayment}
                 type="button"
               >
-                {loading ? "Yonlendiriliyor..." : "Odemeye Git"}
+                {loading ? t("payment.redirecting") : t("payment.goToPayment")}
               </button>
               <Link
                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 to="/online-order/my-orders"
               >
-                Siparislerime don
+                {t("payment.backToOrders")}
               </Link>
             </div>
           </div>
         ) : (
           <div>
-            <p className="mb-3 text-sm text-slate-600">
-              Iyzico Sandbox formu yukleniyor. Yuklenmiyorsa onceki butona tekrar basin.
-            </p>
+            <p className="mb-3 text-sm text-slate-600">{t("payment.formLoading")}</p>
             <div
               id="iyzipay-checkout-form"
               className="responsive"

@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { apiRequest } from "../api";
 import PickupOrderStatusPanel from "../components/pickup/PickupOrderStatusPanel";
 import RemoteImage from "../components/RemoteImage";
+import useAppTranslation from "../hooks/useAppTranslation";
 import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
 function formatPrice(value) {
@@ -20,6 +21,7 @@ function getAvailabilityTone(product) {
 const TERMINAL_STATUSES = new Set(["PAID", "COMPLETED", "CANCELLED", "REJECTED"]);
 
 export default function OrderPage() {
+  const { t } = useAppTranslation();
   const { tableId } = useParams();
   const [payload, setPayload] = useState(null);
   const [activeOrder, setActiveOrder] = useState(null);
@@ -184,7 +186,7 @@ export default function OrderPage() {
 
     try {
       if (cartItems.length === 0) {
-        setError("Add at least one item.");
+        setError(t("common.errors.addOneItem"));
         return;
       }
 
@@ -202,7 +204,7 @@ export default function OrderPage() {
 
       setActiveOrder(result.order);
       setCart({});
-      setMessage("Order sent. Track progress below — status updates automatically.");
+      setMessage(t("order.orderSentTrack"));
       await loadMenu();
       window.requestAnimationFrame(() => {
         document.getElementById("order-status-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -215,7 +217,7 @@ export default function OrderPage() {
   }
 
   if (loading) {
-    return <div className="p-6 text-center text-sm text-slate-600">Loading menu...</div>;
+    return <div className="p-6 text-center text-sm text-slate-600">{t("order.loadingMenu")}</div>;
   }
 
   if (error && !payload) {
@@ -226,9 +228,9 @@ export default function OrderPage() {
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-4 sm:px-6">
       <div className="space-y-4 pb-28">
         <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">QR Table Ordering</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t("order.headerEyebrow")}</p>
           <h1 className="mt-2 text-2xl font-semibold text-slate-950">{payload?.restaurant?.name}</h1>
-          <p className="mt-1 text-sm text-slate-600">Table {payload?.table?.name}</p>
+          <p className="mt-1 text-sm text-slate-600">{t("order.tableLabel", { tableName: payload?.table?.name })}</p>
         </header>
 
         {message ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</div> : null}
@@ -236,8 +238,8 @@ export default function OrderPage() {
 
         {activeOrder && !TERMINAL_STATUSES.has(activeOrder.status) ? (
           <div className="rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
-            <p className="font-semibold">Your order is live on this screen</p>
-            <p className="mt-1 text-brand-800">Status refreshes every {FAST_POLL_MS / 1000} seconds while you keep this page open.</p>
+            <p className="font-semibold">{t("order.liveOrderTitle")}</p>
+            <p className="mt-1 text-brand-800">{t("order.liveOrderRefresh", { seconds: FAST_POLL_MS / 1000 })}</p>
           </div>
         ) : null}
 
@@ -285,7 +287,7 @@ export default function OrderPage() {
                     alt={product.name}
                     className="h-44 w-full object-cover"
                     fallbackClassName="flex h-44 w-full items-center justify-center bg-slate-200 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
-                    fallback="No photo"
+                    fallback={t("order.noPhoto")}
                     src={product.photoUrl}
                   />
 
@@ -324,7 +326,7 @@ export default function OrderPage() {
                     {quantity > 0 && !isDisabled ? (
                       <textarea
                         className="mt-3 min-h-[72px] w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
-                        placeholder="Notes for this item"
+                        placeholder={t("order.notesPlaceholder")}
                         value={cart[product.id]?.notes || ""}
                         onChange={(event) => updateNotes(product.id, event.target.value)}
                       />
@@ -336,7 +338,7 @@ export default function OrderPage() {
 
             {visibleProducts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                No products available.
+                {t("order.noProducts")}
               </div>
             ) : null}
           </div>
@@ -350,16 +352,16 @@ export default function OrderPage() {
         <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Ad Soyad</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{t("order.customerName")}</label>
               <input
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500"
-                placeholder="Siparişte görünsün"
+                placeholder={t("order.customerNamePlaceholder")}
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
               />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{cartItems.length} items</p>
+              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{t("order.itemsCount", { count: cartItems.length })}</p>
               <p className="mt-1 text-xl font-semibold text-slate-950">{formatPrice(cartTotal)}</p>
             </div>
           </div>
@@ -368,7 +370,7 @@ export default function OrderPage() {
             disabled={submitting || cartItems.length === 0}
             type="submit"
           >
-            {submitting ? "Sending..." : "Place Order"}
+            {submitting ? t("order.submitting") : t("order.submit")}
           </button>
         </div>
       </form>

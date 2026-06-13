@@ -1,8 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { apiRequest } from "../api";
+import GlobalLanguageBar from "../components/app/GlobalLanguageBar";
 import { getDefaultRoute } from "../auth";
+import useAppTranslation from "../hooks/useAppTranslation";
 
 function resolveRedirectPath(rawRedirect) {
   const redirect = String(rawRedirect || "").trim();
@@ -13,7 +14,7 @@ function resolveRedirectPath(rawRedirect) {
 }
 
 export default function LoginPage({ onLogin, session }) {
-  const { t } = useTranslation();
+  const { t } = useAppTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -53,7 +54,8 @@ export default function LoginPage({ onLogin, session }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-12">
+      <GlobalLanguageBar />
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl shadow-brand-100/70">
         <h1 className="text-2xl font-bold text-brand-900">{t("auth.login.title")}</h1>
         <p className="mt-2 text-sm text-slate-600">{t("auth.login.description")}</p>

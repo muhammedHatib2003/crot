@@ -1,18 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useOrderNotificationContext } from "../../context/OrderNotificationContext";
+import useAppTranslation from "../../hooks/useAppTranslation";
 import { unlockNotificationAudio } from "../../utils/notificationSounds";
 import { buttonStyles } from "../app/AppShell";
-
-function formatTime(value) {
-  if (!value) {
-    return "";
-  }
-
-  return new Date(value).toLocaleTimeString("tr-TR", {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
 
 function getTone(type) {
   if (type === "NEW_ORDER") {
@@ -28,6 +18,7 @@ function getTone(type) {
 }
 
 export default function NotificationCenter({ className = "" }) {
+  const { t, formatTime } = useAppTranslation();
   const {
     notifications,
     unreadCount,
@@ -57,7 +48,7 @@ export default function NotificationCenter({ className = "" }) {
   return (
     <div className={`relative ${className}`} ref={panelRef}>
       <button
-        aria-label="Notifications"
+        aria-label={t("notifications.ariaLabel")}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
         onClick={async () => {
           await unlockNotificationAudio();
@@ -80,15 +71,15 @@ export default function NotificationCenter({ className = "" }) {
         <div className="absolute right-0 z-50 mt-2 w-[min(92vw,360px)] rounded-2xl border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div>
-              <p className="text-sm font-semibold text-slate-900">Notifications</p>
-              <p className="text-xs text-slate-500">{unreadCount} unread</p>
+              <p className="text-sm font-semibold text-slate-900">{t("notifications.title")}</p>
+              <p className="text-xs text-slate-500">{t("notifications.unread", { count: unreadCount })}</p>
             </div>
             <div className="flex gap-1">
               <button className={buttonStyles.subtle} onClick={markAllRead} type="button">
-                Read all
+                {t("notifications.readAll")}
               </button>
               <button className={buttonStyles.subtle} onClick={clearNotifications} type="button">
-                Clear
+                {t("notifications.clear")}
               </button>
             </div>
           </div>
@@ -96,14 +87,14 @@ export default function NotificationCenter({ className = "" }) {
           {permission !== "granted" && permission !== "denied" ? (
             <div className="border-b border-slate-100 px-4 py-2">
               <button className={`${buttonStyles.subtle} w-full text-xs`} onClick={requestBrowserPermission} type="button">
-                Enable pop-up alerts
+                {t("notifications.enableAlerts")}
               </button>
             </div>
           ) : null}
 
           <div className="max-h-80 overflow-y-auto p-2">
             {notifications.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-slate-500">No notifications yet.</p>
+              <p className="px-3 py-6 text-center text-sm text-slate-500">{t("notifications.empty")}</p>
             ) : (
               notifications.map((entry) => (
                 <button
@@ -119,7 +110,9 @@ export default function NotificationCenter({ className = "" }) {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-semibold">{entry.message}</p>
-                    <span className="text-[10px] uppercase tracking-wide">{formatTime(entry.createdAt)}</span>
+                    <span className="text-[10px] uppercase tracking-wide">
+                      {formatTime(entry.createdAt, { hour: "2-digit", minute: "2-digit" })}
+                    </span>
                   </div>
                   <p className="mt-1 text-xs">
                     {entry.orderCode}

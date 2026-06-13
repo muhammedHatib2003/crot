@@ -1,3 +1,6 @@
+import useAppTranslation from "../../hooks/useAppTranslation";
+import { translateOrderStatus } from "../../utils/locale";
+
 const TONE_STYLES = {
   PENDING: {
     shell: "border-amber-200 bg-white",
@@ -20,6 +23,7 @@ const TONE_STYLES = {
 };
 
 export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) {
+  const { t } = useAppTranslation();
   const tone = TONE_STYLES[order.status] || TONE_STYLES.PENDING;
   const totalItems = order.items.reduce((total, item) => total + (Number(item.quantity) || 0), 0);
 
@@ -36,7 +40,9 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">{order.status}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+            {translateOrderStatus(t, order.status)}
+          </p>
           <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:mt-3 sm:text-3xl md:text-4xl">{order.orderCode}</h3>
           {order.customerName ? (
             <p className="mt-2 text-lg font-bold text-slate-900 sm:text-xl">{order.customerName}</p>
@@ -44,7 +50,7 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
           <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-3">
             <p className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-700 sm:text-base">{order.sourceLabel}</p>
             <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600 sm:text-[11px]">
-              {totalItems} items
+              {t("kitchen.card.itemsCount", { count: totalItems })}
             </span>
           </div>
         </div>
@@ -55,7 +61,7 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
           </span>
           {order.isNew ? (
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">
-              New
+              {t("kitchen.card.new")}
             </span>
           ) : null}
         </div>
@@ -63,15 +69,15 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
 
       <div className="mt-4 grid grid-cols-1 gap-2 sm:mt-5 sm:grid-cols-3 sm:gap-3">
         <div className="rounded-xl bg-slate-50 px-3 py-2.5 sm:rounded-2xl sm:py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Placed</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("kitchen.card.placed")}</p>
           <p className="mt-1.5 text-base font-bold text-slate-900 sm:mt-2 sm:text-lg">{order.placedLabel}</p>
         </div>
         <div className="rounded-xl bg-slate-50 px-3 py-2.5 sm:rounded-2xl sm:py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Started</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("kitchen.card.started")}</p>
           <p className="mt-1.5 text-base font-bold text-slate-900 sm:mt-2 sm:text-lg">{order.startedLabel}</p>
         </div>
         <div className={`rounded-xl px-3 py-2.5 sm:rounded-2xl sm:py-3 ${order.isLate ? "bg-rose-50" : "bg-slate-50"}`}>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Elapsed</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("kitchen.card.elapsed")}</p>
           <p className={`mt-1.5 text-base font-bold sm:mt-2 sm:text-lg ${order.isLate ? "text-rose-700" : "text-slate-900"}`}>{order.elapsedLabel}</p>
         </div>
       </div>
@@ -97,7 +103,7 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
           onClick={() => onAction(order)}
           type="button"
         >
-          {busy ? "Working..." : order.actionLabel}
+          {busy ? t("kitchen.working") : order.actionLabel}
         </button>
         {onPrint ? (
           <button
@@ -105,7 +111,7 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
             onClick={() => onPrint(order)}
             type="button"
           >
-            Mutfak Fişi Yazdır
+            {t("kitchen.printTicket")}
           </button>
         ) : null}
         {onCancel && order.status !== "READY" ? (
@@ -115,7 +121,7 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
             onClick={() => onCancel(order)}
             type="button"
           >
-            Siparişi İptal Et
+            {t("kitchen.cancelOrder")}
           </button>
         ) : null}
       </div>

@@ -17,7 +17,12 @@ import {
   isLocalOnlyOrderOrigin,
   setPublicAppOrigin
 } from "../utils/tableOrderLinks";
+import useAppTranslation from "../hooks/useAppTranslation";
 import useOrderNotifications from "../hooks/useOrderNotifications";
+import {
+  translateCategory,
+  translateEmployeeRole
+} from "../utils/locale";
 import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 import {
   AppShell,
@@ -35,30 +40,14 @@ import {
 } from "../components/app/AppShell";
 
 const EMPLOYEE_ROLE_OPTIONS = [
-  { value: "chef", label: "Chef" },
-  { value: "cashier", label: "Cashier" },
-  { value: "waiter", label: "Waiter" },
-  { value: "inventory_manager", label: "Inventory Manager" }
+  { value: "chef" },
+  { value: "cashier" },
+  { value: "waiter" },
+  { value: "inventory_manager" }
 ];
 const TABLE_SEAT_OPTIONS = [2, 4, 6, 8, 10];
 const TABLE_STATUS_OPTIONS = ["AVAILABLE", "OCCUPIED", "RESERVED", "CLEANING"];
 const MENU_CATEGORY_OPTIONS = ["General", "Starter", "Main", "Dessert", "Drink"];
-const OWNER_TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "staff", label: "Staff" },
-  { id: "tables", label: "Tables" },
-  { id: "menu", label: "Menu" },
-  { id: "inventory", label: "Inventory" },
-  { id: "settings", label: "Settings" }
-];
-
-function formatEmployeeRoleLabel(employeeRole) {
-  return EMPLOYEE_ROLE_OPTIONS.find((option) => option.value === employeeRole)?.label || employeeRole || "-";
-}
-
-function formatPrice(price) {
-  return `$${Number(price || 0).toFixed(2)}`;
-}
 
 function getPickupLink(restaurantSlug) {
   if (!restaurantSlug) {
@@ -68,12 +57,12 @@ function getPickupLink(restaurantSlug) {
   return getPublicPath(`/${restaurantSlug}/menu`);
 }
 
-function getPlanLabel(subscription) {
+function getPlanLabel(subscription, t, formatCurrency) {
   if (!subscription?.plan) {
-    return "No active plan";
+    return t("owner.plan.none");
   }
 
-  return `${subscription.plan.displayName} (${subscription.plan.monthlyPrice}/mo)`;
+  return `${subscription.plan.displayName} (${t("owner.plan.monthly", { price: formatCurrency(subscription.plan.monthlyPrice) })})`;
 }
 
 function getTableTone(status) {
@@ -89,27 +78,12 @@ function getTableTone(status) {
   return "neutral";
 }
 
-function formatQuantity(value) {
-  return Number(value || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3
-  });
-}
-
-function formatDateTime(value) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Date(value).toLocaleString("en-US");
-}
-
-function formatRecipeApprovalStatus(status, hasRecipe) {
+function formatRecipeApprovalStatus(status, hasRecipe, t) {
   const normalized = String(status || "").trim().toUpperCase();
   if (hasRecipe || normalized) {
-    return "Recipe ready";
+    return t("owner.menu.recipeReady");
   }
-  return "Missing recipe";
+  return t("owner.menu.missingRecipe");
 }
 
 function getRecipeApprovalTone(status, hasRecipe) {
@@ -120,6 +94,7 @@ function getRecipeApprovalTone(status, hasRecipe) {
 }
 
 export default function OwnerPage({ session, onLogout }) {
+  const { t, formatCurrency, formatNumber, formatDateTime } = useAppTranslation();
   const token = session?.token;
   const [dashboard, setDashboard] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -189,7 +164,18 @@ export default function OwnerPage({ session, onLogout }) {
   const requiresPlanSelection = Boolean(dashboard?.requiresPlanSelection);
   const canUseBusinessTools = !requiresPlanSelection;
   const showPlanGate = requiresPlanSelection && !loading;
-  const restaurantName = dashboard?.restaurant?.name || "Restaurant";
+  const restaurantName = dashboard?.restaurant?.name || t("common.restaurantFallback");
+  const ownerTabs = useMemo(
+    () => [
+      { id: "overview", label: t("owner.tabs.overview") },
+      { id: "staff", label: t("owner.tabs.staff") },
+      { id: "tables", label: t("owner.tabs.tables") },
+      { id: "menu", label: t("owner.tabs.menu") },
+      { id: "inventory", label: t("owner.tabs.inventory") },
+      { id: "settings", label: t("owner.tabs.settings") }
+    ],
+    [t]
+  );
   const selectedRecipeItem = useMemo(
     () => menuItems.find((item) => item.id === selectedRecipeItemId) || null,
     [menuItems, selectedRecipeItemId]
@@ -197,46 +183,48 @@ export default function OwnerPage({ session, onLogout }) {
   const metrics = useMemo(
     () => [
       {
-        label: "Staff",
+        label: t("owner.metrics.staff"),
         value: dashboard?.employeesCount || 0,
-        detail: "Active employee accounts"
+        detail: t("owner.metrics.staffDetail")
       },
       {
-        label: "Tables",
+        label: t("owner.metrics.tables"),
         value: dashboard?.tablesCount || 0,
-        detail: "Configured dine-in tables"
+        detail: t("owner.metrics.tablesDetail")
       },
       {
-        label: "Menu",
+        label: t("owner.metrics.menu"),
         value: dashboard?.menuItemsCount || 0,
-        detail: "Menu items to manage"
+        detail: t("owner.metrics.menuDetail")
       },
       {
-        label: "Plan",
-        value: currentPlan ? currentPlan.displayName : "Required",
-        detail: currentPlan ? `${currentPlan.monthlyPrice}/month` : "Select a plan to unlock operations"
+        label: t("owner.metrics.plan"),
+        value: currentPlan ? currentPlan.displayName : t("owner.metrics.planRequired"),
+        detail: currentPlan
+          ? t("common.monthlyPriceShort", { price: formatCurrency(currentPlan.monthlyPrice) })
+          : t("owner.metrics.planDetail")
       }
     ],
-    [currentPlan, dashboard?.employeesCount, dashboard?.menuItemsCount, dashboard?.tablesCount]
+    [currentPlan, dashboard?.employeesCount, dashboard?.menuItemsCount, dashboard?.tablesCount, formatCurrency, t]
   );
   const nextSteps = useMemo(() => {
     const steps = [];
 
     if (requiresPlanSelection) {
-      steps.push("Select a subscription plan.");
+      steps.push(t("owner.steps.selectPlan"));
     }
     if ((dashboard?.tablesCount || 0) === 0) {
-      steps.push("Add the first table.");
+      steps.push(t("owner.steps.addTable"));
     }
     if ((dashboard?.menuItemsCount || 0) === 0) {
-      steps.push("Add the first menu item.");
+      steps.push(t("owner.steps.addMenuItem"));
     }
     if ((dashboard?.employeesCount || 0) === 0) {
-      steps.push("Invite staff accounts.");
+      steps.push(t("owner.steps.inviteStaff"));
     }
 
     return steps;
-  }, [dashboard?.employeesCount, dashboard?.menuItemsCount, dashboard?.tablesCount, requiresPlanSelection]);
+  }, [dashboard?.employeesCount, dashboard?.menuItemsCount, dashboard?.tablesCount, requiresPlanSelection, t]);
 
   function updateEmployeeField(key, value) {
     setEmployeeForm((previous) => ({ ...previous, [key]: value }));
@@ -289,7 +277,7 @@ export default function OwnerPage({ session, onLogout }) {
     }
 
     setMessage("");
-    setError("Önce abonelik planınızı seçip ödemeyi tamamlayın.");
+    setError(t("owner.planRequired"));
     return false;
   }
 
@@ -467,7 +455,7 @@ export default function OwnerPage({ session, onLogout }) {
     setError("");
 
     if (!selectedPlanId) {
-      setError("Select a plan.");
+      setError(t("owner.messages.selectPlan"));
       return;
     }
 
@@ -477,14 +465,14 @@ export default function OwnerPage({ session, onLogout }) {
       const result = await startSubscriptionCheckout(selectedPlanId, token);
 
       if (result?.paymentPageUrl) {
-        setMessage("Redirecting to secure payment...");
+        setMessage(t("owner.messages.redirectingPayment"));
         window.location.assign(result.paymentPageUrl);
         return;
       }
 
-      setError("Iyzico payment page could not be opened. Please try again in a moment.");
+      setError(t("owner.messages.paymentPageFailed"));
     } catch (requestError) {
-      setError(requestError.message || "Payment could not be started.");
+      setError(requestError.message || t("owner.messages.paymentStartFailed"));
     } finally {
       setSavingPlan(false);
     }
@@ -517,7 +505,7 @@ export default function OwnerPage({ session, onLogout }) {
         publicOrderingEnabled: Boolean(result.restaurant?.publicOrderingEnabled),
         pickupEnabled: Boolean(result.restaurant?.pickupEnabled)
       });
-      setMessage(result.message || "Settings updated.");
+      setMessage(result.message || t("owner.messages.settingsUpdated"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -559,7 +547,7 @@ export default function OwnerPage({ session, onLogout }) {
             }
           : previous
       );
-      setMessage("Employee added.");
+      setMessage(t("owner.messages.employeeAdded"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -599,7 +587,7 @@ export default function OwnerPage({ session, onLogout }) {
             }
           : previous
       );
-      setMessage("Table created.");
+      setMessage(t("owner.messages.tableCreated"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -624,7 +612,7 @@ export default function OwnerPage({ session, onLogout }) {
       });
 
       setTables((previous) => previous.map((table) => (table.id === tableId ? result.table : table)));
-      setMessage("Table updated.");
+      setMessage(t("owner.messages.tableUpdated"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -666,7 +654,7 @@ export default function OwnerPage({ session, onLogout }) {
             }
           : previous
       );
-      setMessage("Menu item created.");
+      setMessage(t("owner.messages.menuItemCreated"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -691,7 +679,7 @@ export default function OwnerPage({ session, onLogout }) {
       });
 
       setMenuItems((previous) => previous.map((item) => (item.id === itemId ? result.item : item)));
-      setMessage("Menu updated.");
+      setMessage(t("owner.messages.menuUpdated"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -726,7 +714,7 @@ export default function OwnerPage({ session, onLogout }) {
         minStock: "0",
         currentStock: "0"
       });
-      setMessage("Ingredient added.");
+      setMessage(t("owner.messages.ingredientAdded"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -755,7 +743,7 @@ export default function OwnerPage({ session, onLogout }) {
       const nextIngredients = ingredients.map((ingredient) => (ingredient.id === ingredientId ? result.ingredient : ingredient));
       setIngredients(nextIngredients);
       syncIngredientInputs(nextIngredients);
-      setMessage(`${result.ingredient.name} stock updated.`);
+      setMessage(t("owner.messages.stockUpdated", { name: result.ingredient.name }));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -766,8 +754,8 @@ export default function OwnerPage({ session, onLogout }) {
   function copyToClipboard(value, copiedLabel) {
     navigator.clipboard
       ?.writeText(value)
-      .then(() => setMessage(`${copiedLabel} copied.`))
-      .catch(() => setError("Could not copy to clipboard."));
+      .then(() => setMessage(t("common.copied", { label: copiedLabel })))
+      .catch(() => setError(t("common.clipboardFailed")));
   }
 
   async function handlePrintTableQr(table) {
@@ -789,7 +777,7 @@ export default function OwnerPage({ session, onLogout }) {
         qrDataUrl
       });
     } catch (requestError) {
-      setError(requestError.message || "QR yazdırılamadı.");
+      setError(requestError.message || t("owner.messages.qrPrintFailed"));
     } finally {
       setPrintingTableId("");
     }
@@ -801,7 +789,7 @@ export default function OwnerPage({ session, onLogout }) {
         <MetricGrid items={metrics} />
 
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-          <SectionCard title="Next steps" description="Focus only on the setup tasks that still block operations.">
+          <SectionCard title={t("owner.overview.nextStepsTitle")} description={t("owner.overview.nextStepsDescription")}>
             {nextSteps.length > 0 ? (
               <ul className="space-y-3 text-sm text-slate-700">
                 {nextSteps.map((step) => (
@@ -811,49 +799,49 @@ export default function OwnerPage({ session, onLogout }) {
                 ))}
               </ul>
             ) : (
-              <EmptyState title="Setup complete" description="Staff, tables, menu, and plan are all configured." />
+              <EmptyState title={t("owner.overview.setupCompleteTitle")} description={t("owner.overview.setupCompleteDescription")} />
             )}
           </SectionCard>
 
-          <SectionCard title="Ordering links" description="Keep the public ordering links easy to access and share.">
+          <SectionCard title={t("owner.overview.orderingLinksTitle")} description={t("owner.overview.orderingLinksDescription")}>
             <div className="space-y-4">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-sm font-medium text-slate-900">Pickup menu</p>
+                <p className="text-sm font-medium text-slate-900">{t("owner.overview.pickupMenu")}</p>
                 {pickupMenuLink ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <a className="truncate text-sm text-brand-700 hover:text-brand-900" href={pickupMenuLink} rel="noreferrer" target="_blank">
                       {pickupMenuLink}
                     </a>
-                    <button className={buttonStyles.secondary} onClick={() => copyToClipboard(pickupMenuLink, "Pickup link")} type="button">
-                      Copy link
+                    <button className={buttonStyles.secondary} onClick={() => copyToClipboard(pickupMenuLink, t("owner.overview.pickupMenu"))} type="button">
+                      {t("owner.overview.copyLink")}
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-slate-500">Set a restaurant slug in Settings to enable the pickup link.</p>
+                  <p className="mt-2 text-sm text-slate-500">{t("owner.overview.pickupLinkHint")}</p>
                 )}
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-sm font-medium text-slate-900">Order Status Screen</p>
-                <p className="mt-1 text-xs text-slate-500">Full-screen TV display for pickup/counter customers.</p>
+                <p className="text-sm font-medium text-slate-900">{t("owner.overview.orderStatusScreen")}</p>
+                <p className="mt-1 text-xs text-slate-500">{t("owner.overview.orderStatusScreenHint")}</p>
                 {orderStatusScreenLink ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <a className={buttonStyles.primary} href={orderStatusScreenLink} rel="noreferrer" target="_blank">
-                      Open Order Status Screen
+                      {t("owner.overview.openOrderStatusScreen")}
                     </a>
                     <button
                       className={buttonStyles.secondary}
-                      onClick={() => copyToClipboard(orderStatusScreenLink, "Order Status Screen link")}
+                      onClick={() => copyToClipboard(orderStatusScreenLink, t("owner.overview.orderStatusScreen"))}
                       type="button"
                     >
-                      Copy link
+                      {t("owner.overview.copyLink")}
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-slate-500">Set a restaurant slug in Settings to enable the display screen.</p>
+                  <p className="mt-2 text-sm text-slate-500">{t("owner.overview.displayScreenHint")}</p>
                 )}
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-sm font-medium text-slate-900">Example table QR link</p>
+                <p className="text-sm font-medium text-slate-900">{t("owner.overview.exampleTableQr")}</p>
                 {tables[0] ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <a className="truncate text-sm text-brand-700 hover:text-brand-900" href={getTableOrderLink(tables[0].id)} rel="noreferrer" target="_blank">
@@ -864,11 +852,11 @@ export default function OwnerPage({ session, onLogout }) {
                       onClick={() => copyToClipboard(getTableOrderLink(tables[0].id), `${tables[0].name} order link`)}
                       type="button"
                     >
-                      Copy link
+                      {t("owner.overview.copyLink")}
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-slate-500">Add a table to generate dine-in ordering links.</p>
+                  <p className="mt-2 text-sm text-slate-500">{t("owner.overview.addTableForLinks")}</p>
                 )}
               </div>
             </div>
@@ -881,24 +869,24 @@ export default function OwnerPage({ session, onLogout }) {
   function renderStaff() {
     return (
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <SectionCard title="Add staff" description="Create staff accounts for kitchen, cashier, waiter, or inventory roles.">
+        <SectionCard title={t("owner.staff.addTitle")} description={t("owner.staff.addDescription")}>
           <form className="space-y-4" onSubmit={addEmployee}>
-            <Field label="Full name">
+            <Field label={t("common.fullName")}>
               <input className={fieldStyles} required value={employeeForm.fullName} onChange={(event) => updateEmployeeField("fullName", event.target.value)} />
             </Field>
-            <Field label="Role">
+            <Field label={t("common.role")}>
               <select className={fieldStyles} value={employeeForm.employeeRole} onChange={(event) => updateEmployeeField("employeeRole", event.target.value)}>
                 {EMPLOYEE_ROLE_OPTIONS.map((roleOption) => (
                   <option key={roleOption.value} value={roleOption.value}>
-                    {roleOption.label}
+                    {translateEmployeeRole(t, roleOption.value)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Email">
+            <Field label={t("common.labels.email")}>
               <input className={fieldStyles} required type="email" value={employeeForm.email} onChange={(event) => updateEmployeeField("email", event.target.value)} />
             </Field>
-            <Field label="Password">
+            <Field label={t("common.password")}>
               <input
                 className={fieldStyles}
                 minLength={6}
@@ -908,29 +896,29 @@ export default function OwnerPage({ session, onLogout }) {
                 onChange={(event) => updateEmployeeField("password", event.target.value)}
               />
             </Field>
-            <Field hint="Optional" label="Phone">
+            <Field hint={t("common.optional")} label={t("common.phone")}>
               <input className={fieldStyles} value={employeeForm.phone} onChange={(event) => updateEmployeeField("phone", event.target.value)} />
             </Field>
             <button className={buttonStyles.primary} disabled={addingEmployee || !canUseBusinessTools} type="submit">
-              {addingEmployee ? "Adding..." : "Add employee"}
+              {addingEmployee ? t("common.actions.adding") : t("owner.staff.addEmployee")}
             </button>
           </form>
         </SectionCard>
 
-        <SectionCard title="Current staff" description="Keep the staff list readable and role-focused.">
+        <SectionCard title={t("owner.staff.currentTitle")} description={t("owner.staff.currentDescription")}>
           {employees.length > 0 ? (
-            <SimpleTable headers={["Name", "Role", "Email", "Phone"]}>
+            <SimpleTable headers={[t("owner.staff.headers.name"), t("owner.staff.headers.role"), t("owner.staff.headers.email"), t("owner.staff.headers.phone")]}>
               {employees.map((employee) => (
                 <tr key={employee.id}>
                   <td className="px-4 py-3 font-medium text-slate-900">{employee.fullName}</td>
-                  <td className="px-4 py-3 text-slate-700">{formatEmployeeRoleLabel(employee.employeeRole)}</td>
+                  <td className="px-4 py-3 text-slate-700">{translateEmployeeRole(t, employee.employeeRole)}</td>
                   <td className="px-4 py-3 text-slate-700">{employee.email}</td>
-                  <td className="px-4 py-3 text-slate-700">{employee.phone || "-"}</td>
+                  <td className="px-4 py-3 text-slate-700">{employee.phone || t("common.notAvailable")}</td>
                 </tr>
               ))}
             </SimpleTable>
           ) : (
-            <EmptyState title="No staff yet" description="Add your first employee account from the form on the left." />
+            <EmptyState title={t("owner.staff.emptyTitle")} description={t("owner.staff.emptyDescription")} />
           )}
         </SectionCard>
       </div>
@@ -942,7 +930,7 @@ export default function OwnerPage({ session, onLogout }) {
 
     return (
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[400px_minmax(0,1fr)]">
-        <SectionCard title="Create table" description="Name it, set the seats, and the QR link becomes ready as soon as you save.">
+        <SectionCard title={t("owner.tables.createTitle")} description={t("owner.tables.createDescription")}>
           <TableCreatePanel
             addingTable={addingTable}
             canUseBusinessTools={canUseBusinessTools}
@@ -952,15 +940,14 @@ export default function OwnerPage({ session, onLogout }) {
           />
         </SectionCard>
 
-        <SectionCard title="Tables" description="Each table gets its own QR preview so guests can scan and order.">
+        <SectionCard title={t("owner.tables.listTitle")} description={t("owner.tables.listDescription")}>
           {isLocalOnlyOrderOrigin() ? (
             <MessageBanner tone="warning">
-              QR linki için public adres bulunamadı. api/.env içinde CLIENT_ORIGINS veya PUBLIC_APP_URL ayarlayın (ör.
-              Vercel URL’niz).
+              {t("owner.tables.localOriginWarning")}
             </MessageBanner>
           ) : publicOrderBase ? (
             <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900">
-              <span className="font-semibold">Misafir linkleri:</span>{" "}
+              <span className="font-semibold">{t("owner.tables.guestLinks")}</span>{" "}
               <span className="break-all font-medium">{publicOrderBase}</span>
             </div>
           ) : null}
@@ -981,7 +968,7 @@ export default function OwnerPage({ session, onLogout }) {
               ))}
             </div>
           ) : (
-            <EmptyState title="No tables yet" description="Add a table to start dine-in ordering." />
+            <EmptyState title={t("owner.tables.emptyTitle")} description={t("owner.tables.emptyDescription")} />
           )}
         </SectionCard>
       </div>
@@ -991,27 +978,27 @@ export default function OwnerPage({ session, onLogout }) {
   function renderMenu() {
     return (
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <SectionCard title="Kitchen-owned dishes" description="Kitchen staff creates dishes and recipes now. Owner reviews the live menu and controls visibility only.">
+        <SectionCard title={t("owner.menu.kitchenOwnedTitle")} description={t("owner.menu.kitchenOwnedDescription")}>
           <div className="space-y-3">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Create flow</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{t("owner.menu.createFlow")}</p>
               <p className="mt-2 text-sm text-slate-600">
-                Chef creates the dish in Kitchen, writes the recipe, and asks inventory for missing ingredients.
+                {t("owner.menu.createFlowDescription")}
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Owner actions</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{t("owner.menu.ownerActions")}</p>
               <p className="mt-2 text-sm text-slate-600">
-                You can still hide or show menu items and review how each dish is connected to inventory.
+                {t("owner.menu.ownerActionsDescription")}
               </p>
             </div>
           </div>
         </SectionCard>
 
         <div className="space-y-5">
-          <SectionCard title="Menu items" description="Kitchen adds dishes. Owner reviews the live menu and can control visibility here.">
+          <SectionCard title={t("owner.menu.itemsTitle")} description={t("owner.menu.itemsDescription")}>
             {menuItems.length > 0 ? (
-              <SimpleTable headers={["Item", "Category", "Price", "Availability", "Recipe", "Actions"]}>
+              <SimpleTable headers={[t("owner.menu.headers.item"), t("owner.menu.headers.category"), t("owner.menu.headers.price"), t("owner.menu.headers.availability"), t("owner.menu.headers.recipe"), t("owner.menu.headers.actions")]}>
                 {menuItems.map((item) => (
                   <tr key={item.id}>
                     <td className="px-4 py-3">
@@ -1021,28 +1008,28 @@ export default function OwnerPage({ session, onLogout }) {
                         {!item.isOrderable ? <p className="mt-2 text-xs font-medium text-slate-500">{item.availabilityText}</p> : null}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{item.category}</td>
-                    <td className="px-4 py-3 text-slate-700">{formatPrice(item.price)}</td>
+                    <td className="px-4 py-3 text-slate-700">{translateCategory(t, item.category)}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatCurrency(item.price)}</td>
                     <td className="px-4 py-3 text-slate-700">
-                      <p>{item.isOrderable ? "Available" : item.availabilityText || "Unavailable"}</p>
+                      <p>{item.isOrderable ? t("owner.menu.available") : item.availabilityText || t("owner.menu.unavailable")}</p>
                       {item.hasRecipe && item.orderableStock != null ? (
-                        <p className="text-xs text-slate-500">{item.orderableStock} servings from ingredients</p>
+                        <p className="text-xs text-slate-500">{t("owner.menu.servingsFromIngredients", { count: item.orderableStock })}</p>
                       ) : (
-                        <p className="text-xs text-slate-500">No ingredient recipe</p>
+                        <p className="text-xs text-slate-500">{t("owner.menu.noIngredientRecipe")}</p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-slate-700">
                       <div className="space-y-2">
                         <StatusPill tone={getRecipeApprovalTone(item.recipeApprovalStatus, item.hasRecipe)}>
-                          {formatRecipeApprovalStatus(item.recipeApprovalStatus, item.hasRecipe)}
+                          {formatRecipeApprovalStatus(item.recipeApprovalStatus, item.hasRecipe, t)}
                         </StatusPill>
                         {item.hasRecipe ? (
                           <div>
-                            <p>{item.recipeIngredientCount} ingredients</p>
-                            {item.recipeLimited ? <p className="text-xs text-slate-500">Ingredient limited</p> : null}
+                            <p>{t("common.ingredientsCount", { count: item.recipeIngredientCount })}</p>
+                            {item.recipeLimited ? <p className="text-xs text-slate-500">{t("owner.menu.ingredientLimited")}</p> : null}
                           </div>
                         ) : (
-                          <span className="text-slate-500">Kitchen has not submitted a recipe</span>
+                          <span className="text-slate-500">{t("owner.menu.noKitchenRecipe")}</span>
                         )}
                       </div>
                     </td>
@@ -1054,10 +1041,10 @@ export default function OwnerPage({ session, onLogout }) {
                           onClick={() => toggleMenuItemAvailability(item.id, !item.isAvailable)}
                           type="button"
                         >
-                          {updatingMenuItemId === item.id ? "Updating..." : item.isAvailable ? "Visible" : "Hidden"}
+                          {updatingMenuItemId === item.id ? t("common.actions.updating") : item.isAvailable ? t("owner.menu.visible") : t("owner.menu.hidden")}
                         </button>
                         <button className={buttonStyles.subtle} onClick={() => setSelectedRecipeItemId(item.id)} type="button">
-                          View recipe
+                          {t("owner.menu.viewRecipe")}
                         </button>
                       </div>
                     </td>
@@ -1065,17 +1052,17 @@ export default function OwnerPage({ session, onLogout }) {
                 ))}
               </SimpleTable>
             ) : (
-              <EmptyState title="No menu items yet" description="Kitchen will add the first dish from the kitchen workspace." />
+              <EmptyState title={t("owner.menu.emptyTitle")} description={t("owner.menu.emptyDescription")} />
             )}
           </SectionCard>
 
           <SectionCard
-            title={selectedRecipeItem ? `${selectedRecipeItem.name} recipe` : "Recipe view"}
-            description="Kitchen manages the recipe. Owner can review the ingredient relation here."
+            title={selectedRecipeItem ? t("owner.menu.recipeViewNamed", { name: selectedRecipeItem.name }) : t("owner.menu.recipeViewTitle")}
+            description={t("owner.menu.recipeViewDescription")}
           >
             {menuItems.length > 0 ? (
               <div className="space-y-4">
-                <Field label="Menu item">
+                <Field label={t("owner.menu.menuItemLabel")}>
                   <select className={fieldStyles} value={selectedRecipeItemId} onChange={(event) => setSelectedRecipeItemId(event.target.value)}>
                     {menuItems.map((item) => (
                       <option key={item.id} value={item.id}>
@@ -1090,19 +1077,24 @@ export default function OwnerPage({ session, onLogout }) {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="font-medium text-slate-900">
-                          Recipe state: {formatRecipeApprovalStatus(selectedRecipeItem.recipeApprovalStatus, selectedRecipeItem.hasRecipe)}
+                          {t("owner.menu.recipeState", {
+                            status: formatRecipeApprovalStatus(selectedRecipeItem.recipeApprovalStatus, selectedRecipeItem.hasRecipe, t)
+                          })}
                         </p>
                         <p className="mt-1">
-                          Menu state: {selectedRecipeItem.availabilityText}
+                          {t("owner.menu.menuState", { state: selectedRecipeItem.availabilityText })}
                         </p>
                         {selectedRecipeItem.recipeSubmittedByName ? (
                           <p className="mt-1 text-xs text-slate-500">
-                            Last updated by {selectedRecipeItem.recipeSubmittedByName} on {formatDateTime(selectedRecipeItem.recipeLastSubmittedAt)}
+                            {t("owner.menu.lastUpdatedBy", {
+                              name: selectedRecipeItem.recipeSubmittedByName,
+                              date: formatDateTime(selectedRecipeItem.recipeLastSubmittedAt)
+                            })}
                           </p>
                         ) : null}
                       </div>
                       <StatusPill tone={getRecipeApprovalTone(selectedRecipeItem.recipeApprovalStatus, selectedRecipeItem.hasRecipe)}>
-                        {formatRecipeApprovalStatus(selectedRecipeItem.recipeApprovalStatus, selectedRecipeItem.hasRecipe)}
+                        {formatRecipeApprovalStatus(selectedRecipeItem.recipeApprovalStatus, selectedRecipeItem.hasRecipe, t)}
                       </StatusPill>
                     </div>
                   </div>
@@ -1110,7 +1102,7 @@ export default function OwnerPage({ session, onLogout }) {
 
                 {loadingRecipe ? (
                   <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                    Loading recipe...
+                    {t("common.loading.recipe")}
                   </div>
                 ) : recipeExists ? (
                   <>
@@ -1119,7 +1111,7 @@ export default function OwnerPage({ session, onLogout }) {
                         recipeRows.map((row) => (
                           <div key={row.id} className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[minmax(0,1fr)_160px_100px]">
                             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900">
-                              {ingredients.find((ingredient) => ingredient.id === row.ingredientId)?.name || "Ingredient"}
+                              {ingredients.find((ingredient) => ingredient.id === row.ingredientId)?.name || t("common.labels.ingredients")}
                             </div>
                             <input
                               className={fieldStyles}
@@ -1129,24 +1121,24 @@ export default function OwnerPage({ session, onLogout }) {
                               value={row.quantity}
                             />
                             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500">
-                              {ingredients.find((ingredient) => ingredient.id === row.ingredientId)?.unit || "unit"}
+                              {ingredients.find((ingredient) => ingredient.id === row.ingredientId)?.unit || t("common.labels.unit")}
                             </div>
                           </div>
                         ))
                       ) : (
                         <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                          Kitchen has not submitted a recipe yet.
+                          {t("owner.menu.noKitchenRecipeYet")}
                         </div>
                       )}
                     </div>
 
                   </>
                 ) : (
-                  <EmptyState title="No kitchen recipe yet" description="Kitchen staff must create the dish recipe first." />
+                  <EmptyState title={t("owner.menu.noKitchenRecipeEmptyTitle")} description={t("owner.menu.noKitchenRecipeEmptyDescription")} />
                 )}
               </div>
             ) : (
-              <EmptyState title="No menu items yet" description="Kitchen needs to create a dish before a recipe can appear here." />
+              <EmptyState title={t("owner.menu.noMenuForRecipeTitle")} description={t("owner.menu.noMenuForRecipeDescription")} />
             )}
           </SectionCard>
         </div>
@@ -1157,15 +1149,15 @@ export default function OwnerPage({ session, onLogout }) {
   function renderInventory() {
     return (
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <SectionCard title="Add ingredient" description="Create stock items that menu recipes will consume.">
+        <SectionCard title={t("owner.inventory.addTitle")} description={t("owner.inventory.addDescription")}>
           <form className="space-y-4" onSubmit={addIngredient}>
-            <Field label="Ingredient name">
+            <Field label={t("owner.inventory.ingredientName")}>
               <input className={fieldStyles} required value={ingredientForm.name} onChange={(event) => updateIngredientField("name", event.target.value)} />
             </Field>
-            <Field label="Unit">
+            <Field label={t("common.labels.unit")}>
               <input className={fieldStyles} required value={ingredientForm.unit} onChange={(event) => updateIngredientField("unit", event.target.value)} />
             </Field>
-            <Field label="Minimum stock">
+            <Field label={t("common.labels.minimumStock")}>
               <input
                 className={fieldStyles}
                 min="0"
@@ -1175,7 +1167,7 @@ export default function OwnerPage({ session, onLogout }) {
                 onChange={(event) => updateIngredientField("minStock", event.target.value)}
               />
             </Field>
-            <Field label="Current stock">
+            <Field label={t("common.labels.currentStock")}>
               <input
                 className={fieldStyles}
                 min="0"
@@ -1186,12 +1178,12 @@ export default function OwnerPage({ session, onLogout }) {
               />
             </Field>
             <button className={buttonStyles.primary} disabled={addingIngredient || !canUseBusinessTools} type="submit">
-              {addingIngredient ? "Adding..." : "Add ingredient"}
+              {addingIngredient ? t("common.actions.adding") : t("owner.inventory.addTitle")}
             </button>
           </form>
         </SectionCard>
 
-        <SectionCard title="Inventory ingredients" description="Stock updates here directly affect recipe-based menu availability.">
+        <SectionCard title={t("owner.inventory.listTitle")} description={t("owner.inventory.listDescription")}>
           {ingredients.length > 0 ? (
             <div className="space-y-3">
               {ingredients.map((ingredient) => (
@@ -1200,10 +1192,13 @@ export default function OwnerPage({ session, onLogout }) {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-semibold text-slate-900">{ingredient.name}</p>
-                        {ingredient.isLowStock ? <StatusPill tone="warning">Low stock</StatusPill> : <StatusPill tone="success">Healthy</StatusPill>}
+                        {ingredient.isLowStock ? <StatusPill tone="warning">{t("owner.inventory.lowStock")}</StatusPill> : <StatusPill tone="success">{t("owner.inventory.healthy")}</StatusPill>}
                       </div>
                       <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
-                        {ingredient.unit} • min {formatQuantity(ingredient.minStock)}
+                        {t("owner.inventory.minUnit", {
+                          unit: ingredient.unit,
+                          min: formatNumber(ingredient.minStock, { minimumFractionDigits: 0, maximumFractionDigits: 3 })
+                        })}
                       </p>
                     </div>
 
@@ -1227,7 +1222,7 @@ export default function OwnerPage({ session, onLogout }) {
                         onClick={() => saveIngredientStock(ingredient.id)}
                         type="button"
                       >
-                        {savingIngredientId === ingredient.id ? "Saving..." : "Update stock"}
+                        {savingIngredientId === ingredient.id ? t("common.actions.saving") : t("owner.inventory.updateStock")}
                       </button>
                     </div>
                   </div>
@@ -1235,7 +1230,7 @@ export default function OwnerPage({ session, onLogout }) {
               ))}
             </div>
           ) : (
-            <EmptyState title="No ingredients yet" description="Add stock ingredients on the left to start building recipe-based menu control." />
+            <EmptyState title={t("owner.inventory.emptyTitle")} description={t("owner.inventory.emptyDescription")} />
           )}
         </SectionCard>
       </div>
@@ -1245,47 +1240,47 @@ export default function OwnerPage({ session, onLogout }) {
   function renderSettings() {
     return (
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <SectionCard title="Restaurant settings" description="Branding and ordering controls in one place.">
+        <SectionCard title={t("owner.settings.title")} description={t("owner.settings.description")}>
           <form className="space-y-4" onSubmit={saveSettings}>
             <div className="flex items-center gap-4 rounded-xl bg-slate-50 px-4 py-4">
               <RestaurantLogo className="h-16 w-16 border border-slate-200 text-lg" name={restaurantName} src={settingsForm.logoUrl} />
               <div>
                 <p className="font-medium text-slate-900">{restaurantName}</p>
-                <p className="text-sm text-slate-500">{getPlanLabel(dashboard?.subscription)}</p>
+                <p className="text-sm text-slate-500">{getPlanLabel(dashboard?.subscription, t, formatCurrency)}</p>
               </div>
             </div>
-            <Field hint="Optional" label="Logo URL">
+            <Field hint={t("common.optional")} label={t("owner.settings.logoUrl")}>
               <input className={fieldStyles} value={settingsForm.logoUrl} onChange={(event) => updateSettingsField("logoUrl", event.target.value)} />
             </Field>
-            <Field label="Pickup slug">
+            <Field label={t("owner.settings.pickupSlug")}>
               <input className={fieldStyles} value={settingsForm.slug} onChange={(event) => updateSettingsField("slug", event.target.value)} />
             </Field>
             <label className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-slate-900">Public dine-in ordering</p>
-                <p className="text-sm text-slate-500">Allow customers to order from table links.</p>
+                <p className="text-sm font-medium text-slate-900">{t("owner.settings.publicOrdering")}</p>
+                <p className="text-sm text-slate-500">{t("owner.settings.publicOrderingHint")}</p>
               </div>
               <input checked={settingsForm.publicOrderingEnabled} onChange={(event) => updateSettingsField("publicOrderingEnabled", event.target.checked)} type="checkbox" />
             </label>
             <label className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-slate-900">Pickup ordering</p>
-                <p className="text-sm text-slate-500">Show the pickup menu page for online orders.</p>
+                <p className="text-sm font-medium text-slate-900">{t("owner.settings.pickupOrdering")}</p>
+                <p className="text-sm text-slate-500">{t("owner.settings.pickupOrderingHint")}</p>
               </div>
               <input checked={settingsForm.pickupEnabled} onChange={(event) => updateSettingsField("pickupEnabled", event.target.checked)} type="checkbox" />
             </label>
             <button className={buttonStyles.primary} disabled={savingSettings} type="submit">
-              {savingSettings ? "Saving..." : "Save settings"}
+              {savingSettings ? t("common.actions.saving") : t("owner.settings.saveSettings")}
             </button>
           </form>
         </SectionCard>
 
         <SectionCard
-          title="Abonelik ve plan"
+          title={t("owner.settings.subscriptionTitle")}
           description={
             canUseBusinessTools
-              ? "Mevcut planınızı görüntüleyin veya farklı bir plana geçmek için yeni ödeme başlatın."
-              : "Plan seçimi ilk girişte açılan pencereden yapılır."
+              ? t("owner.settings.subscriptionActiveDescription")
+              : t("owner.settings.subscriptionLockedDescription")
           }
         >
           {canUseBusinessTools ? (
@@ -1299,8 +1294,7 @@ export default function OwnerPage({ session, onLogout }) {
             />
           ) : (
             <p className="text-sm text-slate-600">
-              Dashboard kilitli. Plan seçimi ve ödeme penceresini tamamlayın; ardından ayarlardan planınızı
-              yönetebilirsiniz.
+              {t("owner.settings.dashboardLocked")}
             </p>
           )}
         </SectionCard>
@@ -1335,32 +1329,32 @@ export default function OwnerPage({ session, onLogout }) {
           actions={
             <>
               <button className={buttonStyles.secondary} disabled={showPlanGate} onClick={() => loadData()} type="button">
-                Refresh
+                {t("common.actions.refresh")}
               </button>
               {canUseBusinessTools ? (
                 <Link className={buttonStyles.secondary} to="/owner/online-orders">
-                  Online Orders
+                  {t("owner.onlineOrdersLink")}
                 </Link>
               ) : null}
               <button className={buttonStyles.secondary} onClick={onLogout} type="button">
-                Logout
+                {t("common.actions.logout")}
               </button>
             </>
           }
-          description="Manage staff, tables, menu, and business settings from a single owner workspace."
-          eyebrow="Owner workspace"
-          meta={[session.user.fullName, getPlanLabel(dashboard?.subscription)]}
+          description={t("owner.description")}
+          eyebrow={t("owner.eyebrow")}
+          meta={[session.user.fullName, getPlanLabel(dashboard?.subscription, t, formatCurrency)]}
           title={restaurantName}
         />
 
         {message ? <MessageBanner tone="success">{message}</MessageBanner> : null}
         {!showPlanGate && error ? <MessageBanner tone="error">{error}</MessageBanner> : null}
 
-        {!showPlanGate ? <Tabs activeKey={activeTab} items={OWNER_TABS} onChange={handleTabChange} /> : null}
+        {!showPlanGate ? <Tabs activeKey={activeTab} items={ownerTabs} onChange={handleTabChange} /> : null}
 
         {loading ? (
           <SectionCard>
-            <p className="text-sm text-slate-600">Loading workspace...</p>
+            <p className="text-sm text-slate-600">{t("common.loading.workspace")}</p>
           </SectionCard>
         ) : null}
         {!loading && !showPlanGate && activeTab === "overview" ? renderOverview() : null}

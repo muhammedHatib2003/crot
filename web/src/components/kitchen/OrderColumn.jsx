@@ -1,3 +1,4 @@
+import useAppTranslation from "../../hooks/useAppTranslation";
 import OrderCard from "./OrderCard";
 
 const COLUMN_STYLES = {
@@ -22,6 +23,7 @@ const COLUMN_STYLES = {
 };
 
 export default function OrderColumn({ title, status, orders, busyOrderId, onAction, onPrint, onCancel }) {
+  const { t } = useAppTranslation();
   const style = COLUMN_STYLES[status] || COLUMN_STYLES.PENDING;
   const lateOrders = orders.filter((order) => order.isLate).length;
 
@@ -33,11 +35,13 @@ export default function OrderColumn({ title, status, orders, busyOrderId, onActi
         <div>
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">
             <span className={`h-2.5 w-2.5 rounded-full ${style.dot} shadow-sm`} />
-            Orders
+            {t("kitchen.column.orders")}
           </p>
           <h2 className="mt-1.5 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">{title}</h2>
           {lateOrders > 0 ? (
-            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-rose-600">{lateOrders} late</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-rose-600">
+              {t("kitchen.card.lateCount", { count: lateOrders })}
+            </p>
           ) : null}
         </div>
         <div
@@ -47,7 +51,7 @@ export default function OrderColumn({ title, status, orders, busyOrderId, onActi
         </div>
       </div>
 
-      <div className="mt-3 flex-1 space-y-3 overflow-y-auto pr-1 sm:mt-4 sm:space-y-4">
+      <div className="mt-3 flex-1 space-y-3 overflow-y-auto pe-1 sm:mt-4 sm:space-y-4">
         {orders.length > 0 ? (
           orders.map((order) => (
             <OrderCard
@@ -61,7 +65,7 @@ export default function OrderColumn({ title, status, orders, busyOrderId, onActi
           ))
         ) : (
           <div className="flex h-full min-h-[220px] items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-white px-6 text-center text-base font-semibold text-slate-500 sm:min-h-[240px] sm:text-lg">
-            No orders in {title.toLowerCase()}.
+            {t("kitchen.column.empty", { column: title })}
           </div>
         )}
       </div>

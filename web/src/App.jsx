@@ -23,7 +23,7 @@ import OnlineCustomerLoginPage from "./pages/OnlineCustomerLoginPage";
 import OnlineCustomerSignupPage from "./pages/OnlineCustomerSignupPage";
 import PaymentStartPage from "./pages/PaymentStartPage";
 import PaymentResultPage from "./pages/PaymentResultPage";
-import LanguageSwitcher from "./components/app/LanguageSwitcher";
+import GlobalLanguageBar from "./components/app/GlobalLanguageBar";
 import NotificationCenter from "./components/notifications/NotificationCenter";
 import { OrderNotificationProvider } from "./context/OrderNotificationContext";
 import { clearSession, getDefaultRoute, getSession, setSession } from "./auth";
@@ -86,12 +86,27 @@ function StaffNotificationShell({ session, children }) {
 
   return (
     <OrderNotificationProvider session={session}>
-      <div className="fixed right-3 top-3 z-[80] flex items-center gap-2">
+      <GlobalLanguageBar>
         <NotificationCenter />
-        <LanguageSwitcher />
-      </div>
+      </GlobalLanguageBar>
       {children}
     </OrderNotificationProvider>
+  );
+}
+
+function AppLanguageShell({ session, children }) {
+  const isStaff =
+    session?.user?.systemRole === "OWNER" || session?.user?.systemRole === "EMPLOYEE";
+
+  if (isStaff) {
+    return <StaffNotificationShell session={session}>{children}</StaffNotificationShell>;
+  }
+
+  return (
+    <>
+      <GlobalLanguageBar />
+      {children}
+    </>
   );
 }
 
@@ -132,7 +147,7 @@ export default function App() {
   }
 
   return (
-    <StaffNotificationShell session={session}>
+    <AppLanguageShell session={session}>
       <Routes>
         <Route path="/" element={<RedirectHome session={session} />} />
         <Route
@@ -275,6 +290,6 @@ export default function App() {
         <Route path="/:tenantSlug/menu" element={<PickupOrderPage />} />
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
-    </StaffNotificationShell>
+    </AppLanguageShell>
   );
 }

@@ -97,7 +97,7 @@ export default function LanguageSwitcher({ className = "" }) {
       {open ? (
         <ul
           aria-label={t("common.languageSwitcher.label")}
-          className="lang-switcher__menu absolute right-0 top-[calc(100%+8px)] z-50 flex min-w-[180px] flex-col gap-1 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-[0_20px_60px_rgba(15,23,42,0.18)] backdrop-blur"
+          className="lang-switcher__menu absolute end-0 top-[calc(100%+8px)] z-50 flex min-w-[180px] flex-col gap-1 rounded-2xl border border-slate-200 bg-white/95 p-1.5 shadow-[0_20px_60px_rgba(15,23,42,0.18)] backdrop-blur"
           role="listbox"
         >
           {SUPPORTED_LANGUAGES.map((language, index) => {

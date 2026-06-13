@@ -1,32 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../api";
 import {
-  AppShell,
   EmptyState,
   Field,
   MessageBanner,
   MetricGrid,
-  PageHeader,
   SectionCard,
   SimpleTable,
   StatusPill,
   buttonStyles,
   fieldStyles
 } from "../components/app/AppShell";
+import useAppTranslation from "../hooks/useAppTranslation";
+import { translateOrderStatus, translateUnit } from "../utils/locale";
 
-function formatQuantity(value) {
+function formatQuantity(value, formatNumber) {
   const numericValue = Number(value || 0);
   if (Number.isInteger(numericValue)) {
     return String(numericValue);
   }
 
-  return numericValue.toFixed(3).replace(/\.?0+$/, "");
+  return formatNumber(numericValue, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3
+  });
 }
 
-function formatMovementQuantity(value) {
+function formatMovementQuantity(value, formatNumber) {
   const numericValue = Number(value || 0);
   const prefix = numericValue > 0 ? "+" : "";
-  return `${prefix}${formatQuantity(numericValue)}`;
+  return `${prefix}${formatQuantity(numericValue, formatNumber)}`;
 }
 
 function getMenuTone(item) {
@@ -39,21 +42,21 @@ function getMenuTone(item) {
   return "danger";
 }
 
-function getMenuLabel(item) {
+function getMenuLabel(item, t) {
   if (item.isOrderable) {
-    return "Orderable";
+    return t("inventory.menu.orderable");
   }
   if (item.availabilityReason === "HIDDEN") {
-    return "Hidden";
+    return t("inventory.menu.hidden");
   }
   if (!item.hasRecipe || item.availabilityReason === "RECIPE_INCOMPLETE") {
-    return "Recipe missing";
+    return t("inventory.menu.recipeMissing");
   }
 
-  return "Blocked";
+  return t("inventory.menu.blocked");
 }
 
-function formatIngredientShortages(item) {
+function formatIngredientShortages(item, formatNumber) {
   if (!Array.isArray(item.ingredientShortages) || item.ingredientShortages.length === 0) {
     return item.availabilityText;
   }
@@ -62,7 +65,7 @@ function formatIngredientShortages(item) {
     .slice(0, 2)
     .map(
       (ingredient) =>
-        `${ingredient.name}: ${formatQuantity(ingredient.currentStock)}/${formatQuantity(ingredient.requiredQuantity)} ${ingredient.unit || ""}`.trim()
+        `${ingredient.name}: ${formatQuantity(ingredient.currentStock, formatNumber)}/${formatQuantity(ingredient.requiredQuantity, formatNumber)} ${ingredient.unit || ""}`.trim()
     )
     .join(" | ");
 }
@@ -77,16 +80,12 @@ function getRequestTone(status) {
   return "warning";
 }
 
-function formatRequestStatusLabel(status) {
-  if (status === "FULFILLED") {
-    return "APPROVED";
-  }
-
-  return status;
+function formatRequestStatusLabel(status, t) {
+  return translateOrderStatus(t, status === "FULFILLED" ? "FULFILLED" : status);
 }
 
-function getRequestName(request) {
-  return request.ingredientName || request.requestedIngredientName || request.ingredient?.name || "Ingredient";
+function getRequestName(request, t) {
+  return request.ingredientName || request.requestedIngredientName || request.ingredient?.name || t("common.labels.ingredients");
 }
 
 function getRequestUnit(request) {
@@ -94,6 +93,7 @@ function getRequestUnit(request) {
 }
 
 export default function InventoryPage({ session, onLogout }) {
+  const { t, formatNumber, formatDate, formatDateTime } = useAppTranslation();
   const [activeTab, setActiveTab] = useState("overview");
   const [me, setMe] = useState(session.user);
   const [ingredients, setIngredients] = useState([]);
@@ -248,7 +248,7 @@ export default function InventoryPage({ session, onLogout }) {
       minStock: "0",
       currentStock: String(request.quantity || 0)
     });
-    setMessage(`${getRequestName(request)} loaded into the add ingredient form.`);
+    setMessage(t("inventory.messages.requestLoaded", { name: getRequestName(request, t) }));
     setError("");
     setActiveTab("ingredients");
   }
@@ -277,7 +277,7 @@ export default function InventoryPage({ session, onLogout }) {
         minStock: "0",
         currentStock: "0"
       });
-      setMessage("Ingredient added.");
+      setMessage(t("inventory.messages.ingredientAdded"));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -300,7 +300,7 @@ export default function InventoryPage({ session, onLogout }) {
       });
 
       await loadDashboard();
-      setMessage(`${result.ingredient.name} stock updated.`);
+      setMessage(t("inventory.messages.stockUpdated", { name: result.ingredient.name }));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -323,7 +323,15 @@ export default function InventoryPage({ session, onLogout }) {
       });
 
       await loadDashboard();
-      setMessage(`${getRequestName(result.request)} marked ${formatRequestStatusLabel(status).toLowerCase()}.`);
+      setMessage(
+        t("inventory.messages.requestMarked", {
+          name: getRequestName(result.request, t),
+          status:
+            status === "FULFILLED"
+              ? t("inventory.requests.approved")
+              : t("inventory.requests.rejected")
+        })
+      );
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -331,41 +339,54 @@ export default function InventoryPage({ session, onLogout }) {
     }
   }
 
-  const metrics = [
-    {
-      label: "Ingredients",
-      value: summary.ingredientsCount,
-      detail: "Tracked in inventory",
-      icon: "📦"
-    },
-    {
-      label: "Low Stock",
-      value: summary.lowStockCount,
-      detail: "Need attention",
-      icon: "⚠️",
-      alert: summary.lowStockCount > 0
-    },
-    {
-      label: "Pending Requests",
-      value: summary.pendingIngredientRequests,
-      detail: `${ingredientRequests.filter(r => r.status === "PENDING").length} awaiting approval`,
-      icon: "📋"
-    },
-    {
-      label: "Orderable Menu",
-      value: menuSummary.orderableCount,
-      detail: `out of ${menuSummary.totalItems} dishes`,
-      icon: "🍽️"
-    }
-  ];
+  const metrics = useMemo(
+    () => [
+      {
+        label: t("inventory.metrics.ingredients"),
+        value: summary.ingredientsCount,
+        detail: t("inventory.metrics.ingredientsDetail"),
+        icon: "📦"
+      },
+      {
+        label: t("inventory.metrics.lowStock"),
+        value: summary.lowStockCount,
+        detail: t("inventory.metrics.lowStockDetail"),
+        icon: "⚠️",
+        alert: summary.lowStockCount > 0
+      },
+      {
+        label: t("inventory.metrics.pendingRequests"),
+        value: summary.pendingIngredientRequests,
+        detail: t("inventory.metrics.pendingRequestsDetail", {
+          count: ingredientRequests.filter((request) => request.status === "PENDING").length
+        }),
+        icon: "📋"
+      },
+      {
+        label: t("inventory.metrics.orderableMenu"),
+        value: menuSummary.orderableCount,
+        detail: t("inventory.metrics.orderableMenuDetail", { total: menuSummary.totalItems }),
+        icon: "🍽️"
+      }
+    ],
+    [ingredientRequests, menuSummary.orderableCount, menuSummary.totalItems, summary, t]
+  );
 
-  const tabs = [
-    { id: "overview", label: "Overview", icon: "📊" },
-    { id: "ingredients", label: "Ingredients", icon: "🥬", badge: lowStockIngredients.length },
-    { id: "requests", label: "Requests", icon: "📨", badge: ingredientRequests.filter(r => r.status === "PENDING").length },
-    { id: "menu", label: "Menu Impact", icon: "📖" },
-    { id: "movements", label: "Movements", icon: "🔄" }
-  ];
+  const tabs = useMemo(
+    () => [
+      { id: "overview", label: t("inventory.tabs.overview"), icon: "📊" },
+      { id: "ingredients", label: t("inventory.tabs.ingredients"), icon: "🥬", badge: lowStockIngredients.length },
+      {
+        id: "requests",
+        label: t("inventory.tabs.requests"),
+        icon: "📨",
+        badge: ingredientRequests.filter((request) => request.status === "PENDING").length
+      },
+      { id: "menu", label: t("inventory.tabs.menu"), icon: "📖" },
+      { id: "movements", label: t("inventory.tabs.movements"), icon: "🔄" }
+    ],
+    [ingredientRequests, lowStockIngredients.length, t]
+  );
 
   return (
     <div className="flex h-screen bg-slate-50">
@@ -373,8 +394,8 @@ export default function InventoryPage({ session, onLogout }) {
       <aside className="w-72 bg-white border-r border-slate-200 flex flex-col">
         {/* Restaurant Info */}
         <div className="p-6 border-b border-slate-200">
-          <h1 className="text-xl font-bold text-slate-900">🍽️ StockFlow</h1>
-          <p className="text-sm text-slate-500 mt-1">{me.restaurant?.name || me.restaurantName || "Restaurant"}</p>
+          <h1 className="text-xl font-bold text-slate-900">🍽️ {t("inventory.brand")}</h1>
+          <p className="text-sm text-slate-500 mt-1">{me.restaurant?.name || me.restaurantName || t("common.restaurantFallback")}</p>
           <p className="text-xs text-slate-400 mt-1">{me.fullName}</p>
         </div>
 
@@ -414,7 +435,7 @@ export default function InventoryPage({ session, onLogout }) {
             onClick={onLogout}
             className="w-full px-4 py-2 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
           >
-            Logout
+            {t("common.actions.logout")}
           </button>
         </div>
       </aside>
@@ -430,11 +451,11 @@ export default function InventoryPage({ session, onLogout }) {
                   {tabs.find(t => t.id === activeTab)?.label}
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">
-                  {activeTab === "overview" && "Inventory health and key metrics at a glance"}
-                  {activeTab === "ingredients" && "Manage your ingredient stock levels"}
-                  {activeTab === "requests" && "Review and approve kitchen requests"}
-                  {activeTab === "menu" && "See how stock affects menu availability"}
-                  {activeTab === "movements" && "Track all inventory changes"}
+                  {activeTab === "overview" && t("inventory.descriptions.overview")}
+                  {activeTab === "ingredients" && t("inventory.descriptions.ingredients")}
+                  {activeTab === "requests" && t("inventory.descriptions.requests")}
+                  {activeTab === "menu" && t("inventory.descriptions.menu")}
+                  {activeTab === "movements" && t("inventory.descriptions.movements")}
                 </p>
               </div>
               <button
@@ -442,7 +463,7 @@ export default function InventoryPage({ session, onLogout }) {
                 disabled={refreshing}
                 onClick={() => loadDashboard(true)}
               >
-                {refreshing ? "Refreshing..." : "Refresh"}
+                {refreshing ? t("common.actions.refreshing") : t("common.actions.refresh")}
               </button>
             </div>
           </div>
@@ -467,7 +488,7 @@ export default function InventoryPage({ session, onLogout }) {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <p className="text-sm text-slate-600">Loading dashboard...</p>
+                <p className="text-sm text-slate-600">{t("common.loading.dashboard")}</p>
               </div>
             </div>
           ) : (
@@ -478,7 +499,7 @@ export default function InventoryPage({ session, onLogout }) {
                   <MetricGrid items={metrics} />
                   
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <SectionCard title="⚠️ Low Stock Alerts" description="Ingredients that need immediate attention">
+                    <SectionCard title={`⚠️ ${t("inventory.overview.lowStockTitle")}`} description={t("inventory.overview.lowStockDescription")}>
                       {lowStockIngredients.length > 0 ? (
                         <div className="space-y-3">
                           {lowStockIngredients.slice(0, 5).map((ingredient) => (
@@ -486,66 +507,70 @@ export default function InventoryPage({ session, onLogout }) {
                               <div>
                                 <p className="font-medium text-amber-900">{ingredient.name}</p>
                                 <p className="text-xs text-amber-700 mt-1">
-                                  {formatQuantity(ingredient.currentStock)} / {formatQuantity(ingredient.minStock)} {ingredient.unit}
+                                  {formatQuantity(ingredient.currentStock, formatNumber)} / {formatQuantity(ingredient.minStock, formatNumber)} {ingredient.unit}
                                 </p>
                               </div>
                               <button
                                 onClick={() => setActiveTab("ingredients")}
                                 className="text-xs px-3 py-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200"
                               >
-                                Update
+                                {t("inventory.overview.update")}
                               </button>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <EmptyState title="All good!" description="No low stock items at the moment." />
+                        <EmptyState title={t("inventory.overview.allGood")} description={t("inventory.overview.noLowStock")} />
                       )}
                     </SectionCard>
 
-                    <SectionCard title="📋 Pending Requests" description="Awaiting your approval">
+                    <SectionCard title={`📋 ${t("inventory.overview.pendingRequestsTitle")}`} description={t("inventory.overview.pendingRequestsDescription")}>
                       {ingredientRequests.filter(r => r.status === "PENDING").length > 0 ? (
                         <div className="space-y-3">
                           {ingredientRequests.filter(r => r.status === "PENDING").slice(0, 5).map((request) => (
                             <div key={request.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                               <div className="flex items-center justify-between mb-2">
-                                <p className="font-medium text-slate-900">{getRequestName(request)}</p>
+                                <p className="font-medium text-slate-900">{getRequestName(request, t)}</p>
                                 <button
                                   onClick={() => setActiveTab("requests")}
                                   className="text-xs text-blue-600 hover:text-blue-700"
                                 >
-                                  Review
+                                  {t("common.actions.review")}
                                 </button>
                               </div>
                               <p className="text-xs text-slate-500">
-                                {formatQuantity(request.quantity)} {getRequestUnit(request)} • by {request.requestedByName}
+                                {t("inventory.overview.byUser", {
+                                  quantity: formatQuantity(request.quantity, formatNumber),
+                                  unit: getRequestUnit(request),
+                                  name: request.requestedByName
+                                })}
                               </p>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <EmptyState title="No pending requests" description="All caught up!" />
+                        <EmptyState title={t("inventory.overview.noPendingRequests")} description={t("inventory.overview.caughtUp")} />
                       )}
                     </SectionCard>
                   </div>
 
-                  <SectionCard title="📊 Menu Overview" description="How stock affects your menu">
+                  <SectionCard title={`📊 ${t("inventory.overview.menuOverviewTitle")}`} description={t("inventory.overview.menuOverviewDescription")}>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="text-center p-4 bg-green-50 rounded-lg">
                         <p className="text-2xl font-bold text-green-600">{menuSummary.orderableCount}</p>
-                        <p className="text-xs text-green-700 mt-1">Orderable Dishes</p>
+                        <p className="text-xs text-green-700 mt-1">{t("inventory.overview.orderableDishes")}</p>
                       </div>
                       <div className="text-center p-4 bg-red-50 rounded-lg">
                         <p className="text-2xl font-bold text-red-600">{menuSummary.blockedCount}</p>
-                        <p className="text-xs text-red-700 mt-1">Blocked Dishes</p>
+                        <p className="text-xs text-red-700 mt-1">{t("inventory.overview.blockedDishes")}</p>
                       </div>
                       <div className="text-center p-4 bg-yellow-50 rounded-lg">
                         <p className="text-2xl font-bold text-yellow-600">{menuSummary.ingredientLimitedCount}</p>
-                        <p className="text-xs text-yellow-700 mt-1">Limited by Stock</p>
+                        <p className="text-xs text-yellow-700 mt-1">{t("inventory.overview.limitedByStock")}</p>
                       </div>
                       <div className="text-center p-4 bg-blue-50 rounded-lg">
                         <p className="text-2xl font-bold text-blue-600">{menuSummary.missingRecipeCount}</p>
-                        <p className="text-xs text-blue-700 mt-1">Missing Recipes</p>
+                        <p className="text-xs text-blue-700 mt-1">{t("inventory.overview.missingRecipes")}</p>
                       </div>
                     </div>
                   </SectionCard>
@@ -556,33 +581,33 @@ export default function InventoryPage({ session, onLogout }) {
               {activeTab === "ingredients" && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <SectionCard title="Add New Ingredient" description="Create inventory items for your kitchen">
+                    <SectionCard title={t("inventory.ingredients.addTitle")} description={t("inventory.ingredients.addDescription")}>
                       <form className="space-y-4" onSubmit={addIngredient}>
-                        <Field label="Ingredient name">
+                        <Field label={t("inventory.ingredients.name")}>
                           <input
                             className={fieldStyles}
                             required
-                            placeholder="e.g., Tomatoes, Flour, Olive Oil"
+                            placeholder={t("inventory.ingredients.namePlaceholder")}
                             value={ingredientForm.name}
                             onChange={(e) => updateIngredientField("name", e.target.value)}
                           />
                         </Field>
-                        <Field label="Unit">
+                        <Field label={t("inventory.ingredients.unit")}>
                           <select
                             className={fieldStyles}
                             required
                             value={ingredientForm.unit}
                             onChange={(e) => updateIngredientField("unit", e.target.value)}
                           >
-                            <option value="pcs">Pieces (pcs)</option>
-                            <option value="kg">Kilograms (kg)</option>
-                            <option value="g">Grams (g)</option>
-                            <option value="l">Liters (l)</option>
-                            <option value="ml">Milliliters (ml)</option>
+                            <option value="pcs">{translateUnit(t, "pcs")}</option>
+                            <option value="kg">{translateUnit(t, "kg")}</option>
+                            <option value="g">{translateUnit(t, "g")}</option>
+                            <option value="l">{translateUnit(t, "l")}</option>
+                            <option value="ml">{translateUnit(t, "ml")}</option>
                           </select>
                         </Field>
                         <div className="grid grid-cols-2 gap-3">
-                          <Field label="Minimum stock">
+                          <Field label={t("inventory.ingredients.minimumStock")}>
                             <input
                               className={fieldStyles}
                               min="0"
@@ -592,7 +617,7 @@ export default function InventoryPage({ session, onLogout }) {
                               onChange={(e) => updateIngredientField("minStock", e.target.value)}
                             />
                           </Field>
-                          <Field label="Current stock">
+                          <Field label={t("inventory.ingredients.currentStock")}>
                             <input
                               className={fieldStyles}
                               min="0"
@@ -604,12 +629,12 @@ export default function InventoryPage({ session, onLogout }) {
                           </Field>
                         </div>
                         <button className={`${buttonStyles.primary} w-full`} disabled={addingIngredient} type="submit">
-                          {addingIngredient ? "Adding..." : "Add Ingredient"}
+                          {addingIngredient ? t("common.actions.adding") : t("inventory.ingredients.submit")}
                         </button>
                       </form>
                     </SectionCard>
 
-                    <SectionCard title="Ingredient Stock" description="Current inventory levels">
+                    <SectionCard title={t("inventory.ingredients.stockTitle")} description={t("inventory.ingredients.stockDescription")}>
                       {ingredients.length > 0 ? (
                         <div className="space-y-3 max-h-[500px] overflow-y-auto">
                           {ingredients.map((ingredient) => (
@@ -618,11 +643,14 @@ export default function InventoryPage({ session, onLogout }) {
                                 <div>
                                   <p className="font-medium text-slate-900">{ingredient.name}</p>
                                   <p className="text-xs text-slate-500 mt-1">
-                                    Min: {formatQuantity(ingredient.minStock)} {ingredient.unit}
+                                    {t("inventory.ingredients.minimum", {
+                                      value: formatQuantity(ingredient.minStock, formatNumber),
+                                      unit: ingredient.unit
+                                    })}
                                   </p>
                                 </div>
                                 <StatusPill tone={ingredient.isLowStock ? "warning" : "success"}>
-                                  {ingredient.isLowStock ? "Low" : "Healthy"}
+                                  {ingredient.isLowStock ? t("inventory.ingredients.low") : t("inventory.ingredients.healthy")}
                                 </StatusPill>
                               </div>
                               <div className="flex items-center gap-2 mt-3">
@@ -639,14 +667,14 @@ export default function InventoryPage({ session, onLogout }) {
                                   disabled={savingIngredientId === ingredient.id}
                                   onClick={() => saveStock(ingredient.id)}
                                 >
-                                  Update
+                                  {t("inventory.overview.update")}
                                 </button>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <EmptyState title="No ingredients yet" description="Add your first ingredient to get started." />
+                        <EmptyState title={t("inventory.ingredients.empty")} description={t("inventory.ingredients.emptyDescription")} />
                       )}
                     </SectionCard>
                   </div>
@@ -655,7 +683,7 @@ export default function InventoryPage({ session, onLogout }) {
 
               {/* Requests Tab */}
               {activeTab === "requests" && (
-                <SectionCard title="Kitchen Requests" description="Approve or reject ingredient requests from kitchen staff">
+                <SectionCard title={t("inventory.requests.title")} description={t("inventory.requests.description")}>
                   {ingredientRequests.length > 0 ? (
                     <div className="space-y-4">
                       {ingredientRequests.map((request) => (
@@ -663,16 +691,20 @@ export default function InventoryPage({ session, onLogout }) {
                           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
-                                <p className="font-semibold text-slate-900">{getRequestName(request)}</p>
+                                <p className="font-semibold text-slate-900">{getRequestName(request, t)}</p>
                                 <StatusPill tone={getRequestTone(request.status)}>
-                                  {formatRequestStatusLabel(request.status)}
+                                  {formatRequestStatusLabel(request.status, t)}
                                 </StatusPill>
                               </div>
                               <p className="text-sm text-slate-600">
-                                {formatQuantity(request.quantity)} {getRequestUnit(request)} • by {request.requestedByName}
+                                {t("inventory.overview.byUser", {
+                                  quantity: formatQuantity(request.quantity, formatNumber),
+                                  unit: getRequestUnit(request),
+                                  name: request.requestedByName
+                                })}
                               </p>
                               {request.note && <p className="text-sm text-slate-500 mt-2 italic">"{request.note}"</p>}
-                              <p className="text-xs text-slate-400 mt-2">{new Date(request.createdAt).toLocaleDateString()}</p>
+                              <p className="text-xs text-slate-400 mt-2">{formatDate(request.createdAt)}</p>
                             </div>
 
                             {request.status === "PENDING" && (
@@ -682,7 +714,7 @@ export default function InventoryPage({ session, onLogout }) {
                                     className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
                                     onClick={() => useRequestInForm(request)}
                                   >
-                                    Add to Form
+                                    {t("inventory.requests.addToForm")}
                                   </button>
                                 )}
                                 <button
@@ -690,14 +722,14 @@ export default function InventoryPage({ session, onLogout }) {
                                   onClick={() => updateRequestStatus(request.id, "FULFILLED")}
                                   disabled={handlingRequestId === request.id}
                                 >
-                                  Approve
+                                  {t("common.actions.approve")}
                                 </button>
                                 <button
                                   className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
                                   onClick={() => updateRequestStatus(request.id, "REJECTED")}
                                   disabled={handlingRequestId === request.id}
                                 >
-                                  Reject
+                                  {t("common.actions.reject")}
                                 </button>
                               </div>
                             )}
@@ -706,17 +738,17 @@ export default function InventoryPage({ session, onLogout }) {
                       ))}
                     </div>
                   ) : (
-                    <EmptyState title="No requests" description="All caught up! No pending requests." />
+                    <EmptyState title={t("inventory.requests.empty")} description={t("inventory.requests.emptyDescription")} />
                   )}
                 </SectionCard>
               )}
 
               {/* Menu Tab */}
               {activeTab === "menu" && (
-                <SectionCard title="Menu Items" description="How inventory affects each dish">
+                <SectionCard title={t("inventory.menu.title")} description={t("inventory.menu.description")}>
                   {menuItems.length > 0 ? (
                     <div className="overflow-x-auto">
-                      <SimpleTable headers={["Dish", "Recipe", "Status", "Stock Impact"]}>
+                      <SimpleTable headers={[t("inventory.menu.dish"), t("inventory.menu.recipe"), t("inventory.menu.status"), t("inventory.menu.stockImpact")]}>
                         {menuItems.map((item) => (
                           <tr key={item.id}>
                             <td className="px-4 py-3">
@@ -725,53 +757,56 @@ export default function InventoryPage({ session, onLogout }) {
                             </td>
                             <td className="px-4 py-3">
                               {item.hasRecipe ? (
-                                <span className="text-sm text-slate-700">{item.recipeIngredientCount} ingredients</span>
+                                <span className="text-sm text-slate-700">{t("common.ingredientsCount", { count: item.recipeIngredientCount })}</span>
                               ) : (
-                                <span className="text-sm text-red-600">No recipe</span>
+                                <span className="text-sm text-red-600">{t("inventory.menu.noRecipe")}</span>
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              <StatusPill tone={getMenuTone(item)}>{getMenuLabel(item)}</StatusPill>
+                              <StatusPill tone={getMenuTone(item)}>{getMenuLabel(item, t)}</StatusPill>
                               <p className="text-xs text-slate-500 mt-1">{item.availabilityText}</p>
                             </td>
                             <td className="px-4 py-3">
-                              <p className="text-sm text-slate-700">{formatIngredientShortages(item)}</p>
+                              <p className="text-sm text-slate-700">{formatIngredientShortages(item, formatNumber)}</p>
                             </td>
                           </tr>
                         ))}
                       </SimpleTable>
                     </div>
                   ) : (
-                    <EmptyState title="No menu items" description="Add dishes to see how inventory affects them." />
+                    <EmptyState title={t("inventory.menu.empty")} description={t("inventory.menu.emptyDescription")} />
                   )}
                 </SectionCard>
               )}
 
               {/* Movements Tab */}
               {activeTab === "movements" && (
-                <SectionCard title="Recent Stock Movements" description="Track all inventory changes">
+                <SectionCard title={t("inventory.movements.title")} description={t("inventory.movements.description")}>
                   {recentMovements.length > 0 ? (
                     <div className="space-y-3">
                       {recentMovements.map((movement) => (
                         <div key={movement.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                           <div>
-                            <p className="font-medium text-slate-900">{movement.ingredient?.name || "Ingredient"}</p>
-                            <p className="text-sm text-slate-600 mt-1">{movement.note || "Stock updated"}</p>
-                            <p className="text-xs text-slate-400 mt-1">{new Date(movement.createdAt).toLocaleString()}</p>
+                            <p className="font-medium text-slate-900">{movement.ingredient?.name || t("inventory.movements.ingredientFallback")}</p>
+                            <p className="text-sm text-slate-600 mt-1">{movement.note || t("inventory.movements.updated")}</p>
+                            <p className="text-xs text-slate-400 mt-1">{formatDateTime(movement.createdAt)}</p>
                           </div>
                           <div className="text-right">
                             <p className={`font-semibold ${movement.quantity > 0 ? "text-green-600" : "text-red-600"}`}>
-                              {formatMovementQuantity(movement.quantity)} {movement.ingredient?.unit}
+                              {formatMovementQuantity(movement.quantity, formatNumber)} {movement.ingredient?.unit}
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
-                              New: {formatQuantity(movement.ingredient?.currentStock)} {movement.ingredient?.unit}
+                              {t("inventory.movements.newStock", {
+                                value: formatQuantity(movement.ingredient?.currentStock, formatNumber),
+                                unit: movement.ingredient?.unit
+                              })}
                             </p>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <EmptyState title="No movements yet" description="Stock updates will appear here." />
+                    <EmptyState title={t("inventory.movements.empty")} description={t("inventory.movements.emptyDescription")} />
                   )}
                 </SectionCard>
               )}

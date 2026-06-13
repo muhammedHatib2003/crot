@@ -1,46 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { getIyzicoPaymentStatus } from "../api";
-
-const ORDER_COPY = {
-  success: {
-    title: "Odeme basarili",
-    description: "Siparisiniz onaylandi. Mutfak hazirlamaya basliyor.",
-    tone: "border-emerald-200 bg-emerald-50 text-emerald-700"
-  },
-  failure: {
-    title: "Odeme basarisiz",
-    description: "Odeme tamamlanamadi. Tekrar denemek isterseniz Odemeye Git butonunu kullanabilirsiniz.",
-    tone: "border-rose-200 bg-rose-50 text-rose-700"
-  }
-};
-
-const SUBSCRIPTION_COPY = {
-  success: {
-    title: "Plan aktif",
-    description: "Odemeniz basariyla alindi. Plan saniyeler icinde owner panelinde aktif gorunecek.",
-    tone: "border-emerald-200 bg-emerald-50 text-emerald-700"
-  },
-  failure: {
-    title: "Plan odemesi basarisiz",
-    description: "Plan odemesi tamamlanamadi. Owner panelinden tekrar deneyebilirsiniz.",
-    tone: "border-rose-200 bg-rose-50 text-rose-700"
-  }
-};
-
-const REASON_COPY = {
-  missing_token: "Iyzico token bulunamadi.",
-  payment_not_found: "Bu odeme kaydi bulunamadi.",
-  conversation_mismatch: "Iyzico ve sistem arasinda dogrulama uyusmazligi.",
-  iyzico_retrieve_failed: "Iyzico tarafindan dogrulama alinamadi.",
-  server_error: "Sunucu hatasi.",
-  subscription_not_found: "Abonelik kaydi bulunamadi.",
-  price_mismatch: "Odenen tutar plan ucretiyle eslesmedi.",
-  payment_failed: "Odeme reddedildi.",
-  ORDER_ALREADY_PAID: "Odeme zaten yapilmis."
-};
+import useAppTranslation from "../hooks/useAppTranslation";
 
 export default function PaymentResultPage({ customerSession }) {
+  const { t } = useAppTranslation();
   const [searchParams] = useSearchParams();
   const kind = (searchParams.get("kind") || "order").toLowerCase();
   const isSubscription = kind === "subscription";
@@ -48,8 +12,8 @@ export default function PaymentResultPage({ customerSession }) {
   const orderId = searchParams.get("orderId") || "";
   const planCode = searchParams.get("planCode") || "";
   const reason = searchParams.get("reason") || "";
-  const copySource = isSubscription ? SUBSCRIPTION_COPY : ORDER_COPY;
-  const copy = copySource[status] || copySource.failure;
+  const copyNamespace = isSubscription ? "payment.subscription" : "payment.order";
+  const resultStatus = status === "success" ? "success" : "failure";
 
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -80,40 +44,46 @@ export default function PaymentResultPage({ customerSession }) {
     };
   }, [customerSession?.token, orderId, isSubscription]);
 
+  const tone =
+    resultStatus === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700";
+  const reasonMessage = reason ? t(`payment.reasons.${reason}`, { defaultValue: reason }) : "";
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <div className={`rounded-2xl border px-6 py-6 shadow-sm ${copy.tone}`}>
-        <h1 className="text-2xl font-semibold">{copy.title}</h1>
-        <p className="mt-2 text-sm">{copy.description}</p>
-        {reason ? <p className="mt-2 text-xs opacity-80">{REASON_COPY[reason] || reason}</p> : null}
+      <div className={`rounded-2xl border px-6 py-6 shadow-sm ${tone}`}>
+        <h1 className="text-2xl font-semibold">{t(`${copyNamespace}.${resultStatus}Title`)}</h1>
+        <p className="mt-2 text-sm">{t(`${copyNamespace}.${resultStatus}Description`)}</p>
+        {reasonMessage ? <p className="mt-2 text-xs opacity-80">{reasonMessage}</p> : null}
       </div>
 
       {isSubscription ? (
         <section className="mt-5 rounded-2xl bg-white p-5 text-sm text-slate-700 shadow-sm">
           {planCode ? (
             <p>
-              Plan: <span className="font-medium text-slate-900">{planCode}</span>
+              {t("payment.planLabel")} <span className="font-medium text-slate-900">{planCode}</span>
             </p>
           ) : null}
-          <p className="mt-2 text-slate-500">Owner paneline donerek plan durumunu kontrol edebilirsiniz.</p>
+          <p className="mt-2 text-slate-500">{t("payment.subscriptionHint")}</p>
         </section>
       ) : (
         <section className="mt-5 rounded-2xl bg-white p-5 text-sm text-slate-700 shadow-sm">
           <p>
-            Siparis: <span className="font-medium text-slate-900">{orderId || "-"}</span>
+            {t("payment.orderLabel")} <span className="font-medium text-slate-900">{orderId || "-"}</span>
           </p>
           {loading ? (
-            <p className="mt-2 text-slate-500">Durum aliniyor...</p>
+            <p className="mt-2 text-slate-500">{t("payment.loadingStatus")}</p>
           ) : details ? (
             <div className="mt-2 space-y-1">
               <p>
-                Siparis durumu: <span className="font-medium text-slate-900">{details.orderStatus}</span>
+                {t("payment.orderStatus")} <span className="font-medium text-slate-900">{details.orderStatus}</span>
               </p>
               <p>
-                Odeme durumu: <span className="font-medium text-slate-900">{details.paymentStatus}</span>
+                {t("payment.paymentStatusLabel")} <span className="font-medium text-slate-900">{details.paymentStatus}</span>
               </p>
               {details.payment?.iyzicoPaymentId ? (
-                <p className="text-xs text-slate-500">iyzico paymentId: {details.payment.iyzicoPaymentId}</p>
+                <p className="text-xs text-slate-500">
+                  {t("payment.iyzicoPaymentId", { id: details.payment.iyzicoPaymentId })}
+                </p>
               ) : null}
             </div>
           ) : null}
@@ -126,14 +96,14 @@ export default function PaymentResultPage({ customerSession }) {
             className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-900"
             to="/owner"
           >
-            Owner paneline don
+            {t("payment.ownerPanel")}
           </Link>
         ) : (
           <Link
             className="rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-900"
             to="/online-order/my-orders"
           >
-            Siparislerim
+            {t("payment.myOrders")}
           </Link>
         )}
         {!isSubscription && status !== "success" && orderId ? (
@@ -141,7 +111,7 @@ export default function PaymentResultPage({ customerSession }) {
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             to={`/payment/start?orderId=${encodeURIComponent(orderId)}`}
           >
-            Tekrar Odemeye Git
+            {t("payment.retryPayment")}
           </Link>
         ) : null}
         {!isSubscription ? (
@@ -149,7 +119,7 @@ export default function PaymentResultPage({ customerSession }) {
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             to="/online-order"
           >
-            Restoranlar
+            {t("payment.restaurants")}
           </Link>
         ) : null}
       </div>

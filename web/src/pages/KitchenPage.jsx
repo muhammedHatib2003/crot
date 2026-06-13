@@ -6,6 +6,8 @@ import KitchenTicketPrint from "../components/print/KitchenTicketPrint";
 import { triggerPrint } from "../components/print/printUtils";
 import { normalizeImageUrl } from "../utils/images";
 import useOrderNotifications from "../hooks/useOrderNotifications";
+import useAppTranslation from "../hooks/useAppTranslation";
+import { translateCategory } from "../utils/locale";
 import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 
 const POLL_INTERVAL_MS = FAST_POLL_MS;
@@ -25,96 +27,6 @@ function toTimestamp(value) {
 
   const timestamp = new Date(value).getTime();
   return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function formatLiveClock(value) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit"
-  }).format(value);
-}
-
-function formatClockTime(value) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function formatElapsed(ms) {
-  const safeMs = Math.max(0, ms);
-  const totalMinutes = Math.floor(safeMs / 60000);
-
-  if (totalMinutes < 1) {
-    return "< 1m";
-  }
-
-  if (totalMinutes < 60) {
-    return `${totalMinutes}m`;
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-}
-
-function formatRelativeTime(value, nowMs) {
-  const timestamp = toTimestamp(value);
-  if (!timestamp) {
-    return "-";
-  }
-
-  const elapsedMs = Math.max(0, nowMs - timestamp);
-  const totalMinutes = Math.floor(elapsedMs / 60000);
-
-  if (totalMinutes < 1) {
-    return "Just now";
-  }
-
-  if (totalMinutes < 60) {
-    return `${totalMinutes} min ago`;
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes > 0 ? `${hours}h ${minutes}m ago` : `${hours}h ago`;
-}
-
-function getSourceLabel(order) {
-  if (order.orderType === "PICKUP") {
-    return order.customerName ? `PICKUP · ${order.customerName}` : "PICKUP";
-  }
-
-  if (order.orderType === "DELIVERY") {
-    return order.customerName ? `ONLINE · ${order.customerName}` : "ONLINE";
-  }
-
-  const tableLabel = String(order.table?.name || "TABLE").toUpperCase();
-  return order.customerName ? `${tableLabel} · ${order.customerName}` : tableLabel;
-}
-
-function getActionLabel(order) {
-  const status = order?.status;
-  const orderType = String(order?.orderType || "").trim().toUpperCase();
-
-  if (status === "PENDING" || status === "ACCEPTED") {
-    return "Start";
-  }
-
-  if (status === "PREPARING") {
-    return "Ready";
-  }
-
-  if (status === "READY" && orderType === "PICKUP") {
-    return "Teslim Edildi";
-  }
-
-  return "Complete";
 }
 
 function getBoardStartTime(order) {
@@ -145,6 +57,7 @@ function createRecipeRow() {
 }
 
 export default function KitchenPage({ session, onLogout }) {
+  const { t, formatTime, formatCurrency } = useAppTranslation();
   const [activeTab, setActiveTab] = useState("orders");
   const [orders, setOrders] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
@@ -185,7 +98,95 @@ export default function KitchenPage({ session, onLogout }) {
   const hasLoadedRef = useRef(false);
   const { acknowledgeOrder } = useOrderNotifications(orders, { panel: "kitchen" });
 
-  const restaurantName = session.user.restaurant?.name || session.user.restaurantName || "Kitchen";
+  function formatLiveClock(value) {
+    return formatTime(value, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  }
+
+  function formatClockTime(value) {
+    return formatTime(value, { hour: "numeric", minute: "2-digit" });
+  }
+
+  function formatElapsed(ms) {
+    const safeMs = Math.max(0, ms);
+    const totalMinutes = Math.floor(safeMs / 60000);
+
+    if (totalMinutes < 1) {
+      return t("kitchen.lessThanMinute");
+    }
+
+    if (totalMinutes < 60) {
+      return t("kitchen.elapsedMinutes", { count: totalMinutes });
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return minutes > 0
+      ? t("kitchen.elapsedHoursMinutes", { hours, minutes })
+      : t("kitchen.elapsedHours", { hours });
+  }
+
+  function formatRelativeTime(value, nowMs) {
+    const timestamp = toTimestamp(value);
+    if (!timestamp) {
+      return t("common.notAvailable");
+    }
+
+    const elapsedMs = Math.max(0, nowMs - timestamp);
+    const totalMinutes = Math.floor(elapsedMs / 60000);
+
+    if (totalMinutes < 1) {
+      return t("kitchen.justNow");
+    }
+
+    if (totalMinutes < 60) {
+      return t("kitchen.minuteAgo", { count: totalMinutes });
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    const label = minutes > 0
+      ? t("kitchen.elapsedHoursMinutes", { hours, minutes })
+      : t("kitchen.elapsedHours", { hours });
+    return t("kitchen.hoursAgo", { label });
+  }
+
+  function getSourceLabel(order) {
+    let sourceKey = "kitchen.source.table";
+    if (order.orderType === "PICKUP") {
+      sourceKey = "kitchen.source.pickup";
+    } else if (order.orderType === "DELIVERY") {
+      sourceKey = "kitchen.source.online";
+    }
+
+    const source = t(sourceKey);
+    if (order.orderType === "DELIVERY" || order.orderType === "PICKUP") {
+      return order.customerName ? t("kitchen.source.withCustomer", { source, name: order.customerName }) : source;
+    }
+
+    const tableLabel = order.table?.name || t("kitchen.source.table");
+    return order.customerName ? t("kitchen.source.withCustomer", { source: tableLabel, name: order.customerName }) : tableLabel;
+  }
+
+  function getActionLabel(order) {
+    const status = order?.status;
+    const orderType = String(order?.orderType || "").trim().toUpperCase();
+
+    if (status === "PENDING" || status === "ACCEPTED") {
+      return t("kitchen.action.start");
+    }
+
+    if (status === "PREPARING") {
+      return t("kitchen.action.markReady");
+    }
+
+    if (status === "READY" && orderType === "PICKUP") {
+      return t("kitchen.action.pickupDelivered");
+    }
+
+    return t("kitchen.action.complete");
+  }
+
+  const restaurantName = session.user.restaurant?.name || session.user.restaurantName || t("kitchen.fallbackName");
   const selectedMenuItem = useMemo(
     () => menuItems.find((item) => item.id === selectedMenuItemId) || null,
     [menuItems, selectedMenuItemId]
@@ -376,7 +377,11 @@ export default function KitchenPage({ session, onLogout }) {
         photoUrl: ""
       });
       setCreateRecipeRows([]);
-      setMessage(createPayload.ingredients.length > 0 ? `${result.item.name} created with recipe.` : `${result.item.name} created.`);
+      setMessage(
+        createPayload.ingredients.length > 0
+          ? t("kitchen.messages.dishCreatedWithRecipe", { name: result.item.name })
+          : t("kitchen.messages.dishCreated", { name: result.item.name })
+      );
       await loadMenu();
       setSelectedMenuItemId(result.item.id);
     } catch (requestError) {
@@ -460,7 +465,7 @@ export default function KitchenPage({ session, onLogout }) {
       });
 
       setMenuItems((currentItems) => currentItems.map((item) => (item.id === result.item.id ? result.item : item)));
-      setMessage(`${result.item.name} updated.`);
+      setMessage(t("kitchen.messages.dishUpdated", { name: result.item.name }));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -488,7 +493,7 @@ export default function KitchenPage({ session, onLogout }) {
       };
 
       if (payload.ingredients.length === 0) {
-        setError("Add at least one ingredient before saving the recipe.");
+        setError(t("kitchen.messages.addIngredientBeforeSave"));
         return;
       }
 
@@ -498,7 +503,7 @@ export default function KitchenPage({ session, onLogout }) {
         body: payload
       });
 
-      setMessage(`${selectedMenuItem.name} recipe saved.`);
+      setMessage(t("kitchen.messages.recipeSaved", { name: selectedMenuItem.name }));
       setRecipeExists(true);
       await loadMenu();
       await loadRecipe(selectedMenuItem.id);
@@ -565,17 +570,12 @@ export default function KitchenPage({ session, onLogout }) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `${order.orderCode} numaralı siparişi iptal etmek istediğinize emin misiniz?`
-    );
+    const confirmed = window.confirm(t("kitchen.cancelConfirm", { orderCode: order.orderCode }));
     if (!confirmed) {
       return;
     }
 
-    const reason = window.prompt(
-      "İptal sebebini girin (opsiyonel):",
-      "Stok / hammadde yetersiz"
-    );
+    const reason = window.prompt(t("kitchen.cancelReasonPrompt"), t("kitchen.cancelReasonDefault"));
     if (reason === null) {
       return;
     }
@@ -593,7 +593,7 @@ export default function KitchenPage({ session, onLogout }) {
           cancellationReason: String(reason || "").trim()
         }
       });
-      setMessage(`${order.orderCode} numaralı sipariş iptal edildi.`);
+      setMessage(t("kitchen.messages.orderCancelled", { orderCode: order.orderCode }));
       acknowledgeOrder(order.id);
       await loadOrders({ silent: true });
     } catch (requestError) {
@@ -631,7 +631,7 @@ export default function KitchenPage({ session, onLogout }) {
       PREPARING: normalizedOrders.filter((order) => order.status === "PREPARING"),
       READY: normalizedOrders.filter((order) => order.status === "READY")
     };
-  }, [filterType, newOrderIds, now, orders]);
+  }, [filterType, newOrderIds, now, orders, t, formatTime]);
 
   const counters = useMemo(
     () => ({
@@ -642,15 +642,15 @@ export default function KitchenPage({ session, onLogout }) {
   );
 
   const tabs = [
-    { id: "orders", label: "Orders", icon: "🍽️", badge: counters.pending + counters.preparing },
-    { id: "menu", label: "Menu", icon: "📖" }
+    { id: "orders", label: t("kitchen.tabs.orders"), icon: "🍽️", badge: counters.pending + counters.preparing },
+    { id: "menu", label: t("kitchen.tabs.menu"), icon: "📖" }
   ];
 
   return (
     <div className="flex h-[100dvh] flex-col bg-gradient-to-br from-emerald-50 via-teal-50/60 to-slate-100 lg:flex-row">
       <header className="flex items-center justify-between gap-3 border-b border-slate-200/70 bg-white/90 px-4 py-3 shadow-sm backdrop-blur lg:hidden">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Kitchen KDS</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("kitchen.brand")}</p>
           <p className="text-sm font-bold text-slate-900">{restaurantName}</p>
         </div>
         <p className="text-lg font-semibold tabular-nums text-slate-900">{formatLiveClock(now)}</p>
@@ -659,7 +659,7 @@ export default function KitchenPage({ session, onLogout }) {
       {/* Sidebar — desktop only */}
       <aside className="hidden w-72 flex-col border-r border-slate-200/70 bg-white/85 shadow-[0_14px_34px_rgba(2,8,23,0.08)] backdrop-blur lg:flex">
         <div className="p-6 border-b border-slate-200/70">
-          <h1 className="text-xl font-bold text-slate-950 tracking-tight">Kitchen KDS</h1>
+          <h1 className="text-xl font-bold text-slate-950 tracking-tight">{t("kitchen.brand")}</h1>
           <p className="text-sm text-slate-600 mt-1">{restaurantName}</p>
         </div>
 
@@ -694,14 +694,14 @@ export default function KitchenPage({ session, onLogout }) {
 
         <div className="p-4 border-t border-slate-200 space-y-2">
           <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">Current time</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1">{t("common.labels.currentTime")}</p>
             <p className="text-2xl font-semibold text-slate-950 tracking-tight">{formatLiveClock(now)}</p>
           </div>
           <button
             onClick={onLogout}
             className="w-full rounded-xl px-4 py-2 text-sm font-semibold text-slate-700 transition duration-200 hover:bg-rose-50 hover:text-rose-700"
           >
-            Logout
+            {t("common.actions.logout")}
           </button>
         </div>
       </aside>
@@ -714,8 +714,8 @@ export default function KitchenPage({ session, onLogout }) {
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">{tabs.find((t) => t.id === activeTab)?.label}</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  {activeTab === "orders" && "Real-time order management and preparation tracking"}
-                  {activeTab === "menu" && "Manage dishes, recipes, and menu items"}
+                  {activeTab === "orders" && t("kitchen.ordersDescription")}
+                  {activeTab === "menu" && t("kitchen.menuDescription")}
                 </p>
               </div>
               {activeTab === "orders" ? (
@@ -725,7 +725,7 @@ export default function KitchenPage({ session, onLogout }) {
                   onClick={() => loadOrders({ manual: true })}
                   type="button"
                 >
-                  {refreshing ? "Refreshing..." : "Refresh"}
+                  {refreshing ? t("common.actions.refreshing") : t("common.actions.refresh")}
                 </button>
               ) : null}
             </div>
@@ -734,11 +734,11 @@ export default function KitchenPage({ session, onLogout }) {
           {activeTab === "orders" && (
             <div className="mb-4 grid grid-cols-2 gap-3 md:gap-4 lg:mb-6">
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-700 font-medium">Pending Orders</p>
+                <p className="text-sm text-amber-700 font-medium">{t("kitchen.pendingOrders")}</p>
                 <p className="text-3xl font-bold text-amber-900 mt-1">{counters.pending}</p>
               </div>
               <div className="bg-sky-50 border border-sky-200 rounded-xl p-4">
-                <p className="text-sm text-sky-700 font-medium">In Preparation</p>
+                <p className="text-sm text-sky-700 font-medium">{t("kitchen.inPreparation")}</p>
                 <p className="text-3xl font-bold text-sky-900 mt-1">{counters.preparing}</p>
               </div>
             </div>
@@ -766,7 +766,7 @@ export default function KitchenPage({ session, onLogout }) {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <p className="text-sm text-slate-600">Loading orders...</p>
+                    <p className="text-sm text-slate-600">{t("kitchen.loadingOrders")}</p>
                   </div>
                 </div>
               ) : (
@@ -790,39 +790,39 @@ export default function KitchenPage({ session, onLogout }) {
               <div className="ui-surface ui-enter rounded-2xl p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-950">Create new dish</h3>
-                    <p className="mt-1 text-sm text-slate-600">Add a menu item, then optionally define a recipe.</p>
+                    <h3 className="text-lg font-semibold text-slate-950">{t("kitchen.createDish")}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{t("kitchen.createDishDescription")}</p>
                   </div>
                   <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800">
-                    Menu
+                    {t("kitchen.tabs.menu")}
                   </span>
                 </div>
 
                 <form className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={createDish}>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Dish Name *</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t("kitchen.dishName")}</label>
                     <input
                       className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       required
                       value={dishForm.name}
                       onChange={(e) => updateDishField("name", e.target.value)}
-                      placeholder="e.g., Margherita Pizza"
+                      placeholder={t("kitchen.dishNamePlaceholder")}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t("common.labels.category")}</label>
                     <select
                       className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       value={dishForm.category}
                       onChange={(e) => updateDishField("category", e.target.value)}
                     >
                       {MENU_CATEGORY_OPTIONS.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
+                        <option key={cat} value={cat}>{translateCategory(t, cat)}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Price *</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t("common.labels.price")} *</label>
                     <input
                       className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       min="0.01"
@@ -831,35 +831,35 @@ export default function KitchenPage({ session, onLogout }) {
                       type="number"
                       value={dishForm.price}
                       onChange={(e) => updateDishField("price", e.target.value)}
-                      placeholder="0.00"
+                      placeholder={t("kitchen.pricePlaceholder")}
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t("common.labels.description")}</label>
                     <textarea
                       className="w-full min-h-[88px] resize-y rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       rows="3"
                       value={dishForm.description}
                       onChange={(e) => updateDishField("description", e.target.value)}
-                      placeholder="Describe the dish..."
+                      placeholder={t("kitchen.descriptionPlaceholder")}
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Photo URL</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t("kitchen.photoUrl")}</label>
                     <input
                       className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                       value={dishForm.photoUrl}
                       onChange={(e) => updateDishField("photoUrl", e.target.value)}
-                      placeholder="https://..."
+                      placeholder={t("kitchen.photoUrlPlaceholder")}
                     />
                   </div>
                   {dishForm.photoUrl && (
                     <div className="md:col-span-2">
                       <RemoteImage
-                        alt="Preview"
+                        alt={t("common.labels.preview")}
                         className="h-32 w-32 rounded-2xl object-cover shadow-[0_10px_22px_rgba(2,8,23,0.12)]"
                         fallbackClassName="flex h-32 w-32 items-center justify-center rounded-lg bg-slate-200 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500"
-                        fallback="No photo"
+                        fallback={t("kitchen.noPhoto")}
                         src={dishForm.photoUrl}
                       />
                     </div>
@@ -867,15 +867,15 @@ export default function KitchenPage({ session, onLogout }) {
                   <div className="md:col-span-2 border-t border-slate-200/70 pt-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700">Ingredients</label>
-                        <p className="mt-1 text-xs text-slate-500">Optional on create. Add recipe lines now or save the dish and edit later.</p>
+                        <label className="block text-sm font-medium text-slate-700">{t("common.labels.ingredients")}</label>
+                        <p className="mt-1 text-xs text-slate-500">{t("kitchen.optionalRecipe")}</p>
                       </div>
                       <button
                         className="inline-flex items-center justify-center rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-emerald-50/60 hover:text-slate-900 hover:shadow-md"
                         onClick={addCreateRecipeRow}
                         type="button"
                       >
-                        + Add Ingredient
+                        {t("kitchen.addIngredient")}
                       </button>
                     </div>
 
@@ -888,7 +888,7 @@ export default function KitchenPage({ session, onLogout }) {
                               value={row.ingredientId}
                               onChange={(e) => updateCreateRecipeRow(row.id, "ingredientId", e.target.value)}
                             >
-                              <option value="">Select ingredient</option>
+                              <option value="">{t("kitchen.selectIngredient")}</option>
                               {ingredients.map((ingredient) => (
                                 <option key={ingredient.id} value={ingredient.id}>
                                   {ingredient.name} ({ingredient.unit})
@@ -902,20 +902,20 @@ export default function KitchenPage({ session, onLogout }) {
                               type="number"
                               value={row.quantity}
                               onChange={(e) => updateCreateRecipeRow(row.id, "quantity", e.target.value)}
-                              placeholder="Qty"
+                              placeholder={t("kitchen.qty")}
                             />
                             <button
                               className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
                               onClick={() => removeCreateRecipeRow(row.id)}
                               type="button"
                             >
-                              Remove
+                              {t("common.actions.remove")}
                             </button>
                           </div>
                         ))
                       ) : (
                         <div className="rounded-lg border border-dashed border-slate-300 px-4 py-4 text-sm text-slate-500">
-                          No ingredients added yet.
+                          {t("kitchen.noIngredientsYet")}
                         </div>
                       )}
                     </div>
@@ -926,7 +926,7 @@ export default function KitchenPage({ session, onLogout }) {
                       disabled={creatingDish}
                       type="submit"
                     >
-                      {creatingDish ? "Creating..." : "Create Dish"}
+                      {creatingDish ? t("common.actions.creating") : t("kitchen.createDishButton")}
                     </button>
                   </div>
                 </form>
@@ -936,25 +936,25 @@ export default function KitchenPage({ session, onLogout }) {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-950">Menu items</h3>
-                    <p className="mt-1 text-sm text-slate-600">Click a card to edit details and recipe.</p>
+                    <h3 className="text-lg font-semibold text-slate-950">{t("kitchen.menuItems")}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{t("kitchen.menuItemsDescription")}</p>
                   </div>
                   <button
                     className="inline-flex items-center justify-center rounded-xl border border-slate-300/80 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-emerald-50/60 hover:text-slate-900 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={loadingMenu}
                     onClick={loadMenu}
                   >
-                    {loadingMenu ? "Loading..." : "Refresh"}
+                    {loadingMenu ? t("common.loading.menu") : t("common.actions.refresh")}
                   </button>
                 </div>
 
                 {loadingMenu && menuItems.length === 0 ? (
                   <div className="ui-enter rounded-2xl border border-slate-200/70 bg-white/70 p-10 text-center text-slate-600 shadow-sm">
-                    Loading menu items...
+                    {t("kitchen.loadingMenuItems")}
                   </div>
                 ) : menuItems.length === 0 ? (
                   <div className="ui-enter rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/80 px-4 py-10 text-center text-sm text-slate-600">
-                    No dishes yet. Create your first dish above!
+                    {t("kitchen.noDishesYet")}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -972,7 +972,7 @@ export default function KitchenPage({ session, onLogout }) {
                           alt={item.name}
                           className="h-40 w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                           fallbackClassName="flex h-40 items-center justify-center rounded-t-xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400"
-                          fallback="No Image"
+                          fallback={t("kitchen.noImage")}
                           src={item.photoUrl}
                         />
                         <div className="p-4">
@@ -981,25 +981,25 @@ export default function KitchenPage({ session, onLogout }) {
                               <h4 className="font-semibold text-slate-950">{item.name}</h4>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                                  {item.category}
+                                  {translateCategory(t, item.category)}
                                 </span>
                                 {item.orderableStock != null && item.hasRecipe ? (
                                   <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
-                                    {item.orderableStock} servings
+                                    {t("kitchen.servings", { count: item.orderableStock })}
                                   </span>
                                 ) : null}
                               </div>
                             </div>
                             <p className="rounded-full bg-gradient-to-r from-brand-700 to-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_10px_20px_rgba(5,150,105,0.22)]">
-                              ${Number(item.price || 0).toFixed(2)}
+                              {formatCurrency(item.price)}
                             </p>
                           </div>
-                          <p className="text-sm text-slate-600 line-clamp-2">{item.description || "No description"}</p>
+                          <p className="text-sm text-slate-600 line-clamp-2">{item.description || t("kitchen.noDescription")}</p>
                           <div className="mt-3 flex items-center justify-between">
                             <span className={`text-xs px-2 py-1 rounded ${item.hasRecipe ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                              {item.hasRecipe ? `${item.recipeIngredientCount} ingredients` : "No recipe"}
+                              {item.hasRecipe ? t("kitchen.ingredientsCount", { count: item.recipeIngredientCount }) : t("kitchen.noRecipe")}
                             </span>
-                            <span className="text-xs font-medium text-slate-500 transition group-hover:text-brand-900">Edit →</span>
+                            <span className="text-xs font-medium text-slate-500 transition group-hover:text-brand-900">{t("common.editLink")}</span>
                           </div>
                         </div>
                       </div>
@@ -1011,14 +1011,14 @@ export default function KitchenPage({ session, onLogout }) {
               {/* Edit Selected Dish */}
               {selectedMenuItem && (
                 <div className="ui-surface ui-enter rounded-2xl p-6">
-                  <h3 className="text-lg font-semibold text-slate-950 mb-1">Edit: {selectedMenuItem.name}</h3>
-                  <p className="text-sm text-slate-600">Update details and manage the recipe.</p>
+                  <h3 className="text-lg font-semibold text-slate-950 mb-1">{t("kitchen.editDish", { name: selectedMenuItem.name })}</h3>
+                  <p className="text-sm text-slate-600">{t("kitchen.editDetailsDescription")}</p>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Dish Details */}
                     <div className="space-y-4">
-                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Dish details</h4>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("kitchen.dishDetails")}</h4>
                       <div>
-                        <label className="block text-sm text-slate-600 mb-1">Name</label>
+                        <label className="block text-sm text-slate-600 mb-1">{t("common.labels.name")}</label>
                         <input
                           className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           value={editDishForm.name}
@@ -1026,19 +1026,19 @@ export default function KitchenPage({ session, onLogout }) {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm text-slate-600 mb-1">Category</label>
+                        <label className="block text-sm text-slate-600 mb-1">{t("common.labels.category")}</label>
                         <select
                           className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           value={editDishForm.category}
                           onChange={(e) => updateEditDishField("category", e.target.value)}
                         >
                           {MENU_CATEGORY_OPTIONS.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
+                            <option key={cat} value={cat}>{translateCategory(t, cat)}</option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm text-slate-600 mb-1">Price</label>
+                        <label className="block text-sm text-slate-600 mb-1">{t("common.labels.price")}</label>
                         <input
                           className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           type="number"
@@ -1048,7 +1048,7 @@ export default function KitchenPage({ session, onLogout }) {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm text-slate-600 mb-1">Description</label>
+                        <label className="block text-sm text-slate-600 mb-1">{t("common.labels.description")}</label>
                         <textarea
                           className="w-full min-h-[88px] resize-y rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           rows="3"
@@ -1057,7 +1057,7 @@ export default function KitchenPage({ session, onLogout }) {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm text-slate-600 mb-1">Photo URL</label>
+                        <label className="block text-sm text-slate-600 mb-1">{t("kitchen.photoUrl")}</label>
                         <input
                           className="w-full rounded-xl border border-slate-300/80 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           value={editDishForm.photoUrl}
@@ -1069,7 +1069,7 @@ export default function KitchenPage({ session, onLogout }) {
                           alt={`${editDishForm.name || selectedMenuItem.name} preview`}
                           className="h-40 w-full rounded-2xl object-cover shadow-[0_12px_26px_rgba(2,8,23,0.12)]"
                           fallbackClassName="flex h-40 w-full items-center justify-center rounded-xl bg-slate-200 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500"
-                          fallback="No photo"
+                          fallback={t("kitchen.noPhoto")}
                           src={editDishForm.photoUrl}
                         />
                       ) : null}
@@ -1079,28 +1079,28 @@ export default function KitchenPage({ session, onLogout }) {
                           checked={editDishForm.isAvailable}
                           onChange={(e) => updateEditDishField("isAvailable", e.target.checked)}
                         />
-                        <span className="text-sm text-slate-700">Available on menu</span>
+                        <span className="text-sm text-slate-700">{t("kitchen.availableOnMenu")}</span>
                       </label>
                       <button
                         className="ui-action-sheen inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(2,8,23,0.22)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(2,8,23,0.25)] disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={savingDish}
                         onClick={saveDish}
                       >
-                        {savingDish ? "Saving..." : "Save Changes"}
+                        {savingDish ? t("common.actions.saving") : t("kitchen.saveChanges")}
                       </button>
                     </div>
 
                     {/* Recipe Management */}
                     <div className="space-y-4">
-                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Recipe</h4>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("kitchen.recipe")}</h4>
                       {loadingRecipe ? (
-                        <div className="text-center py-8 text-slate-500">Loading recipe...</div>
+                        <div className="text-center py-8 text-slate-500">{t("common.loading.recipe")}</div>
                       ) : (
                         <>
                           <div className="space-y-2 max-h-96 overflow-y-auto rounded-2xl border border-slate-200/70 bg-white/60 p-3">
                             {recipeRows.length === 0 ? (
                               <div className="text-center py-8 text-slate-500 border border-dashed border-slate-300 rounded-2xl bg-white/70">
-                                No ingredients yet. Add some!
+                                {t("kitchen.noRecipeYet")}
                               </div>
                             ) : (
                               recipeRows.map((row) => (
@@ -1110,7 +1110,7 @@ export default function KitchenPage({ session, onLogout }) {
                                     value={row.ingredientId}
                                     onChange={(e) => updateRecipeRow(row.id, "ingredientId", e.target.value)}
                                   >
-                                    <option value="">Select ingredient</option>
+                                    <option value="">{t("kitchen.selectIngredient")}</option>
                                     {ingredients.map((ing) => (
                                       <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
                                     ))}
@@ -1121,7 +1121,7 @@ export default function KitchenPage({ session, onLogout }) {
                                     step="0.001"
                                     value={row.quantity}
                                     onChange={(e) => updateRecipeRow(row.id, "quantity", e.target.value)}
-                                    placeholder="Qty"
+                                    placeholder={t("kitchen.qty")}
                                   />
                                   <button
                                     className="rounded-xl px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
@@ -1138,14 +1138,14 @@ export default function KitchenPage({ session, onLogout }) {
                               className="inline-flex items-center justify-center rounded-xl border border-slate-300/80 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-brand-300 hover:bg-emerald-50/60 hover:text-slate-900 hover:shadow-md"
                               onClick={addRecipeRow}
                             >
-                              + Add Ingredient
+                              {t("kitchen.addIngredient")}
                             </button>
                             <button
                               className="ui-action-sheen inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-brand-700 via-brand-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(5,150,105,0.3)] transition duration-200 hover:-translate-y-0.5 hover:from-brand-900 hover:to-brand-700 hover:shadow-[0_14px_28px_rgba(5,150,105,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
                               disabled={savingRecipe}
                               onClick={saveRecipe}
                             >
-                              {savingRecipe ? "Saving..." : "Save Recipe"}
+                              {savingRecipe ? t("common.actions.saving") : t("kitchen.saveRecipe")}
                             </button>
                           </div>
                         </>
@@ -1185,7 +1185,7 @@ export default function KitchenPage({ session, onLogout }) {
           type="button"
         >
           <span className="text-lg">↻</span>
-          <span>{refreshing || loadingMenu ? "..." : "Refresh"}</span>
+          <span>{refreshing || loadingMenu ? "..." : t("common.actions.refresh")}</span>
         </button>
         <button
           className="flex min-h-[52px] min-w-[72px] flex-col items-center justify-center rounded-xl px-2 text-xs font-semibold text-rose-700"
@@ -1193,7 +1193,7 @@ export default function KitchenPage({ session, onLogout }) {
           type="button"
         >
           <span className="text-lg">⎋</span>
-          <span>Logout</span>
+          <span>{t("common.actions.logout")}</span>
         </button>
       </nav>
 

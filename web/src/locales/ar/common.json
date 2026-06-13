@@ -89,8 +89,11 @@
     },
     "orderStatus": {
       "pending": "قيد الانتظار",
+      "accepted": "مقبول",
       "preparing": "قيد التحضير",
       "ready": "جاهز",
+      "onTheWay": "في الطريق",
+      "completed": "مكتمل",
       "paid": "مدفوع",
       "cancelled": "ملغي",
       "fulfilled": "تم الاعتماد",
@@ -285,9 +288,17 @@
     "currentOrder": "الطلب الحالي",
     "notesPlaceholder": "ملاحظات لهذا العنصر",
     "orderSent": "تم إرسال الطلب.",
-    "submit": "إرسال الطلب بمبلغ {{total}}",
-    "submitting": "جارٍ إرسال الطلب...",
-    "noPhoto": "لا توجد صورة"
+    "orderSentTrack": "تم إرسال الطلب. تتبع التقدم أدناه — يتم تحديث الحالة تلقائيًا.",
+    "liveOrderTitle": "طلبك مباشر على هذه الشاشة",
+    "liveOrderRefresh": "تتحدث الحالة كل {{seconds}} ثانية طالما أن الصفحة مفتوحة.",
+    "submit": "إرسال الطلب",
+    "submitting": "جارٍ الإرسال...",
+    "noPhoto": "لا توجد صورة",
+    "noProducts": "لا توجد منتجات متاحة.",
+    "customerName": "الاسم الكامل",
+    "customerNamePlaceholder": "يظهر على طلبك",
+    "itemsCount": "{{count}} عنصر",
+    "loadingMenu": "جارٍ تحميل القائمة..."
   },
   "pickup": {
     "eyebrow": "طلب استلام عبر الإنترنت",
@@ -314,12 +325,32 @@
     "emptyCart": "سلتك فارغة.",
     "emptyMenu": "لا توجد قائمة بعد.",
     "defaultDescription": "عنصر استلام مُحضّر طازجًا.",
-    "unavailable": "غير متاح",
     "addMore": "إضافة المزيد",
     "addToCart": "أضف إلى السلة",
-    "submit": "إرسال طلب استلام بقيمة {{total}}",
-    "submitting": "جارٍ إرسال الطلب...",
-    "loading": "جارٍ تحميل القائمة..."
+    "submit": "إرسال طلب استلام — {{total}}",
+    "submitting": "جارٍ الإرسال...",
+    "loading": "جارٍ تحميل القائمة...",
+    "noPhoto": "لا توجد صورة",
+    "productCount": "{{count}} عنصر",
+    "menuLabel": "القائمة",
+    "phonePlaceholder": "05xx xxx xx xx",
+    "orderNotesPlaceholderShort": "حساسية، بدون توابل...",
+    "cartLabel": "السلة",
+    "cartItemsCount": "{{count}} عنصر",
+    "emptyCartPrompt": "السلة فارغة. أضف عناصر من القائمة لإرسال الطلب.",
+    "emptyMenuItems": "لا توجد عناصر قائمة متاحة.",
+    "itemUnavailable": "غير متاح",
+    "orderPlaced": "تم إرسال طلب الاستلام بنجاح.",
+    "unavailable": {
+      "title": "الاستلام غير متاح",
+      "slug": "المعرّف: /{{slug}}/menu",
+      "api": "API: {{baseUrl}}{{path}}",
+      "settingsHint": "لوحة المالك → الإعدادات: معرّف الاستلام، خطة نشطة، تفعيل الطلب داخل المطعم والاستلام."
+    },
+    "liveTracking": {
+      "title": "يتم تتبع طلبك مباشرة",
+      "description": "تظهر الحالة أدناه وفي اللوحة الجانبية. تُحدَّث الصفحة تلقائيًا كل {{seconds}} ثانية."
+    }
   },
   "kitchen": {
     "brand": "شاشة المطبخ",
@@ -334,6 +365,9 @@
     "dineIn": "داخل المطعم",
     "takeaway": "سفري",
     "pickup": "استلام",
+    "online": "أونلاين",
+    "printTicket": "طباعة تذكرة المطبخ",
+    "cancelOrder": "إلغاء الطلب",
     "pendingOrders": "الطلبات المعلقة",
     "inPreparation": "قيد التحضير",
     "createDish": "إنشاء طبق جديد",
@@ -370,12 +404,15 @@
     "lessThanMinute": "< دقيقة",
     "source": {
       "pickup": "استلام",
-      "table": "طاولة"
+      "online": "ONLINE",
+      "table": "طاولة",
+      "withCustomer": "{{source}} · {{name}}"
     },
     "action": {
-      "pending": "ابدأ",
-      "preparing": "جاهز",
-      "ready": "أكمل"
+      "start": "ابدأ",
+      "markReady": "جاهز",
+      "complete": "أكمل",
+      "pickupDelivered": "تم التسليم"
     },
     "column": {
       "orders": "الطلبات",
@@ -388,7 +425,9 @@
       "new": "جديد",
       "placed": "تم الاستلام",
       "started": "بدأ",
-      "elapsed": "الوقت المنقضي"
+      "elapsed": "الوقت المنقضي",
+      "lateCount": "{{count}} متأخر",
+      "itemsCount": "{{count}} عناصر"
     }
   },
   "inventory": {
@@ -689,5 +728,150 @@
       "newTitle": "طلب توصيل قريب",
       "newBody": "ظهر طلب جاهز في منطقتك. افتح لوحة التوصيل."
     }
+  },
+  "oss": {
+    "loading": "جارٍ تحميل شاشة حالة الطلب...",
+    "unavailable": "شاشة حالة الطلب غير متاحة",
+    "urlHint": "الرابط: /display/{{slug}}",
+    "eyebrow": "شاشة حالة الطلب",
+    "subtitle": "طلبات الاستلام / الطاولة · اليوم فقط",
+    "autoRefresh": "تحديث تلقائي كل {{seconds}} ث",
+    "ordersCount": "{{count}} طلب",
+    "columns": {
+      "preparing": {
+        "title": "قيد التحضير",
+        "subtitle": "قيد التحضير",
+        "empty": "لا توجد طلبات قيد التحضير"
+      },
+      "ready": {
+        "title": "جاهز",
+        "subtitle": "جاهز للاستلام",
+        "empty": "لا توجد طلبات جاهزة"
+      },
+      "completed": {
+        "title": "تم التسليم",
+        "subtitle": "مكتملة مؤخرًا",
+        "empty": "لا توجد طلبات مكتملة بعد"
+      }
+    }
+  },
+  "notifications": {
+    "ariaLabel": "الإشعارات",
+    "title": "الإشعارات",
+    "unread": "{{count}} غير مقروء",
+    "readAll": "قراءة الكل",
+    "clear": "مسح",
+    "enableAlerts": "تفعيل التنبيهات المنبثقة",
+    "empty": "لا توجد إشعارات بعد."
+  },
+  "payment": {
+    "title": "الدفع",
+    "checkoutTitle": "الدفع عبر Iyzico",
+    "sandboxHint": "وضع Sandbox. يمكنك الدفع ببطاقات الاختبار.",
+    "missingOrderId": "لم يتم العثور على الطلب (orderId مفقود).",
+    "backToOrders": "العودة إلى طلباتي",
+    "pageNotRetrieved": "تعذر الحصول على صفحة الدفع من Iyzico.",
+    "startFailed": "تعذر بدء الدفع.",
+    "preparingPage": "جارٍ تجهيز صفحة الدفع...",
+    "startHint": "اضغط الذهاب للدفع لبدء صفحة الدفع.",
+    "redirecting": "جارٍ إعادة التوجيه...",
+    "goToPayment": "الذهاب للدفع",
+    "formLoading": "جارٍ تحميل نموذج Iyzico Sandbox. إذا لم يظهر، اضغط الزر مرة أخرى.",
+    "order": {
+      "successTitle": "تم الدفع بنجاح",
+      "successDescription": "تم تأكيد طلبك. يبدأ المطبخ التحضير.",
+      "failureTitle": "فشل الدفع",
+      "failureDescription": "تعذر إكمال الدفع. استخدم الذهاب للدفع للمحاولة مرة أخرى."
+    },
+    "subscription": {
+      "successTitle": "الخطة نشطة",
+      "successDescription": "تم استلام الدفع. ستظهر الخطة نشطة في لوحة المالك خلال ثوانٍ.",
+      "failureTitle": "فشل دفع الخطة",
+      "failureDescription": "تعذر إكمال دفع الخطة. حاول مرة أخرى من لوحة المالك."
+    },
+    "reasons": {
+      "missing_token": "لم يتم العثور على رمز Iyzico.",
+      "payment_not_found": "لم يتم العثور على سجل الدفع.",
+      "conversation_mismatch": "عدم تطابق التحقق بين Iyzico والنظام.",
+      "iyzico_retrieve_failed": "تعذر التحقق من Iyzico.",
+      "server_error": "خطأ في الخادم.",
+      "subscription_not_found": "لم يتم العثور على سجل الاشتراك.",
+      "price_mismatch": "المبلغ المدفوع لا يطابق سعر الخطة.",
+      "payment_failed": "تم رفض الدفع.",
+      "ORDER_ALREADY_PAID": "تم الدفع مسبقًا."
+    },
+    "planLabel": "الخطة:",
+    "subscriptionHint": "ارجع إلى لوحة المالك للتحقق من حالة الخطة.",
+    "orderLabel": "الطلب:",
+    "loadingStatus": "جارٍ تحميل الحالة...",
+    "orderStatus": "حالة الطلب:",
+    "paymentStatusLabel": "حالة الدفع:",
+    "iyzicoPaymentId": "iyzico paymentId: {{id}}",
+    "ownerPanel": "العودة إلى لوحة المالك",
+    "myOrders": "طلباتي",
+    "retryPayment": "إعادة محاولة الدفع",
+    "restaurants": "المطاعم"
+  },
+  "onlineRestaurant": {
+    "loadingMenu": "جارٍ تحميل القائمة...",
+    "allRestaurants": "كل المطاعم",
+    "defaultDescription": "تصفح القائمة وأضف العناصر.",
+    "minimum": "الحد الأدنى: {{amount}}",
+    "delivery": "التوصيل: {{amount}}",
+    "estimatedTime": "الوقت المتوقع: {{minutes}} دقيقة",
+    "statusOpen": "مفتوح",
+    "statusClosed": "مغلق",
+    "statusLabel": "الحالة:",
+    "closedWarning": "المطعم مغلق حاليًا. يمكنك عرض القائمة لكن لا يمكنك الطلب.",
+    "outOfZoneWarning": "موقعك المحدد خارج منطقة توصيل هذا المطعم. لا يمكنك الطلب.",
+    "emptyMenu": "لا توجد عناصر قائمة نشطة في هذا المطعم.",
+    "completeOrder": "إكمال الطلب",
+    "cartConflict": "سلتك تحتوي على عناصر من مطعم آخر. هل تريد مسح السلة والمتابعة؟"
+  },
+  "myOrders": {
+    "title": "طلباتي الإلكترونية",
+    "description": "الطلبات الإلكترونية المرتبطة بحسابك.",
+    "logout": "تسجيل الخروج",
+    "loading": "جارٍ تحميل الطلبات...",
+    "empty": "لا توجد طلبات إلكترونية بعد.",
+    "viewRestaurants": "عرض المطاعم",
+    "restaurantFallback": "مطعم",
+    "subtotal": "المجموع الفرعي",
+    "delivery": "التوصيل",
+    "total": "الإجمالي"
+  },
+  "print": {
+    "restaurantFallback": "مطعم",
+    "customerReceipt": "فاتورة العميل",
+    "kitchenTicket": "تذكرة المطبخ",
+    "order": "الطلب",
+    "date": "التاريخ",
+    "type": "النوع",
+    "location": "الموقع",
+    "customer": "العميل",
+    "phone": "الهاتف",
+    "address": "العنوان",
+    "time": "الوقت",
+    "qty": "الكمية",
+    "product": "المنتج",
+    "unitPrice": "الوحدة",
+    "amount": "المبلغ",
+    "noItems": "لا توجد عناصر",
+    "productFallback": "منتج",
+    "subtotal": "المجموع الفرعي",
+    "delivery": "التوصيل",
+    "discount": "الخصم",
+    "tax": "الضريبة",
+    "total": "الإجمالي",
+    "payment": "الدفع",
+    "paymentStatus": {
+      "paid": "مدفوع",
+      "pending": "قيد الانتظار",
+      "failed": "فشل"
+    },
+    "itemNote": "ملاحظة: {{note}}",
+    "orderNote": "ملاحظة الطلب",
+    "thanks": "شكرًا لاختياركم لنا.",
+    "enjoy": "بالهناء والشفاء!"
   }
 }

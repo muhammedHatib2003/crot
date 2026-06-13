@@ -89,8 +89,11 @@
     },
     "orderStatus": {
       "pending": "Bekliyor",
+      "accepted": "Kabul edildi",
       "preparing": "Hazırlanıyor",
       "ready": "Hazır",
+      "onTheWay": "Kuryeye verildi",
+      "completed": "Tamamlandı",
       "paid": "Ödendi",
       "cancelled": "İptal edildi",
       "fulfilled": "Onaylandı",
@@ -123,7 +126,20 @@
     "paymentMethod": {
       "card": "Kart",
       "cash": "Nakit"
-    }
+    },
+    "optional": "İsteğe bağlı",
+    "noPhoto": "Fotoğraf yok",
+    "password": "Şifre",
+    "phone": "Telefon",
+    "fullName": "Ad soyad",
+    "role": "Rol",
+    "servings": "{{count}} porsiyon",
+    "ingredientsCount": "{{count}} malzeme",
+    "editLink": "Düzenle →",
+    "monthlyPrice": "{{price}}/ay",
+    "monthlyPriceShort": "{{price}}/ay",
+    "copied": "{{label}} kopyalandı.",
+    "clipboardFailed": "Panoya kopyalanamadı."
   },
   "auth": {
     "login": {
@@ -208,19 +224,55 @@
     "eyebrow": "Rol",
     "description": "Salon ön planda kalır. Masalar ekranın çoğunu kaplar ve ödeme detayları açılır pencerede görünür.",
     "panelTitle": "Masalar",
-    "panelDescription": "Kasiyer görünümü artık sadece salona odaklı. Ödeme penceresini açmak için herhangi bir masaya tıklayın.",
+    "panelDescription": "Masaya tıklayın: ödeme veya masa açma / sipariş ekleme.",
+    "openTable": "Masa Aç",
     "dueNow": "Şimdi ödenecek",
     "tablePayment": "Masa ödemesi",
     "paymentDescription": "Mevcut masayı gözden geçirin ve ödemeyi bu pencereden tamamlayın.",
     "readyToPay": "Ödemeye hazır",
+    "occupied": "Dolu",
     "readyOrders": "Hazır siparişler",
     "payWithCard": "Kart ile öde",
     "payWithCash": "Nakit ile öde",
     "waiting": "Bekleniyor",
     "emptyTable": "Bu masa boş.",
     "tableStillActive": "Bu masa hâlâ aktif, ancak ödeme için hazır bekleyen bir salon siparişi yok.",
+    "onlineOrdersTitle": "Online siparişler",
+    "onlineOrdersDescription": "Kasiyer kuyruğuna ulaşan gel-al ve teslimat siparişleri.",
+    "noOnlineOrders": "Kasiyer kuyruğunda online sipariş yok.",
+    "itemNotes": "Not: {{notes}}",
+    "tableModalTitle": "Masa işlemleri",
+    "tableModalDescription": "Ödeme alın veya masayı açıp sipariş ekleyin.",
+    "paymentTab": "Ödeme",
+    "orderTab": "Masa Aç / Sipariş",
+    "productsTitle": "Ürünler",
+    "productsDescription": "Ürün seçerek masaya sipariş ekleyin.",
+    "draftOrderTitle": "Taslak sipariş",
+    "newTable": "Yeni masa",
+    "noDraftItems": "Henüz ürün eklenmedi.",
+    "totalLabel": "Toplam: {{total}}",
+    "saveDraft": "Siparişi Güncelle",
+    "openAndSend": "Masayı Aç ve Gönder",
+    "updateDraft": "Siparişi Güncelle",
+    "savingDraft": "Kaydediliyor...",
+    "printKitchen": "Mutfak Fişi Yazdır",
+    "printCustomer": "Müşteri Fişi Yazdır",
+    "payCashPickup": "Nakit Öde & Teslim Et",
+    "payCardPickup": "Kart Öde & Teslim Et",
+    "pickupDeliveredPaid": "Teslim Edildi (ödeme alındı)",
+    "actions": {
+      "onTheWay": "Kuryeye Verildi",
+      "completed": "Tamamlandı",
+      "cancel": "İptal Et"
+    },
     "messages": {
-      "paymentCompleted": "{{tableName}} için {{method}} ile ödeme tamamlandı."
+      "paymentCompleted": "{{tableName}} için {{method}} ile ödeme tamamlandı.",
+      "pickupPaymentCompleted": "Gel-al ödemesi tamamlandı ({{method}}).",
+      "pendingRemoved": "Bekleyen sipariş kaldırıldı.",
+      "addOneItem": "Kaydetmeden önce en az bir ürün ekleyin.",
+      "tableOrderUpdated": "Masa siparişi güncellendi.",
+      "tableOpened": "Masa açıldı ve sipariş mutfağa gönderildi.",
+      "statusUpdated": "Sipariş durumu güncellendi: {{status}}."
     },
     "tableStatus": {
       "readyCount": "{{count}} hazır",
@@ -285,9 +337,17 @@
     "currentOrder": "Mevcut sipariş",
     "notesPlaceholder": "Bu ürün için notlar",
     "orderSent": "Sipariş gönderildi.",
-    "submit": "{{total}} tutarında sipariş ver",
-    "submitting": "Sipariş gönderiliyor...",
-    "noPhoto": "Fotoğraf yok"
+    "orderSentTrack": "Sipariş gönderildi. İlerlemeyi aşağıdan takip edin — durum otomatik güncellenir.",
+    "liveOrderTitle": "Siparişiniz bu ekranda canlı",
+    "liveOrderRefresh": "Sayfa açıkken durum her {{seconds}} saniyede yenilenir.",
+    "submit": "Sipariş ver",
+    "submitting": "Gönderiliyor...",
+    "noPhoto": "Fotoğraf yok",
+    "noProducts": "Ürün bulunmuyor.",
+    "customerName": "Ad Soyad",
+    "customerNamePlaceholder": "Siparişte görünsün",
+    "itemsCount": "{{count}} ürün",
+    "loadingMenu": "Menü yükleniyor..."
   },
   "pickup": {
     "eyebrow": "Online Gel-al",
@@ -314,12 +374,32 @@
     "emptyCart": "Sepetiniz boş.",
     "emptyMenu": "Henüz menü yok.",
     "defaultDescription": "Taze hazırlanan gel-al ürünü.",
-    "unavailable": "Uygun değil",
     "addMore": "Daha fazla ekle",
     "addToCart": "Sepete ekle",
-    "submit": "{{total}} tutarında gel-al siparişi ver",
-    "submitting": "Sipariş gönderiliyor...",
-    "loading": "Menü yükleniyor..."
+    "submit": "Sipariş ver — {{total}}",
+    "submitting": "Gönderiliyor...",
+    "loading": "Menü yükleniyor...",
+    "noPhoto": "Fotoğraf yok",
+    "productCount": "{{count}} ürün",
+    "menuLabel": "Menü",
+    "phonePlaceholder": "05xx xxx xx xx",
+    "orderNotesPlaceholderShort": "Alerji, acısız...",
+    "cartLabel": "Sepet",
+    "cartItemsCount": "{{count}} ürün",
+    "emptyCartPrompt": "Sepet boş. Menüden ürün ekleyerek sipariş verin.",
+    "emptyMenuItems": "Uygun menü ürünü yok.",
+    "itemUnavailable": "Uygun değil",
+    "orderPlaced": "Gel-al siparişi başarıyla verildi.",
+    "unavailable": {
+      "title": "Gel-al kullanılamıyor",
+      "slug": "Slug: /{{slug}}/menu",
+      "api": "API: {{baseUrl}}{{path}}",
+      "settingsHint": "Owner panel → Ayarlar: gel-al slug, aktif plan, Herkese açık salon siparişi ve Gel-al siparişi etkin."
+    },
+    "liveTracking": {
+      "title": "Siparişiniz canlı takip ediliyor",
+      "description": "Durum ekranı aşağıda ve sağdaki panelde görünür. Sayfa her {{seconds}} saniyede otomatik güncellenir."
+    }
   },
   "kitchen": {
     "brand": "Mutfak KDS",
@@ -334,6 +414,9 @@
     "dineIn": "Salonda",
     "takeaway": "Paket",
     "pickup": "Gel-al",
+    "online": "Online",
+    "printTicket": "Mutfak fişi yazdır",
+    "cancelOrder": "Siparişi iptal et",
     "pendingOrders": "Bekleyen siparişler",
     "inPreparation": "Hazırlananlar",
     "createDish": "Yeni yemek oluştur",
@@ -369,13 +452,16 @@
     "hoursAgo": "{{label}} önce",
     "lessThanMinute": "< 1 dk",
     "source": {
-      "pickup": "Gel-al",
-      "table": "Masa"
+      "pickup": "GEL-AL",
+      "online": "ONLINE",
+      "table": "MASA",
+      "withCustomer": "{{source}} · {{name}}"
     },
     "action": {
-      "pending": "Başlat",
-      "preparing": "Hazır",
-      "ready": "Tamamla"
+      "start": "Başlat",
+      "markReady": "Hazır",
+      "complete": "Tamamla",
+      "pickupDelivered": "Teslim Edildi"
     },
     "column": {
       "orders": "Siparişler",
@@ -388,7 +474,29 @@
       "new": "Yeni",
       "placed": "Alındı",
       "started": "Başladı",
-      "elapsed": "Geçen süre"
+      "elapsed": "Geçen süre",
+      "lateCount": "{{count}} gecikmiş",
+      "itemsCount": "{{count}} ürün"
+    },
+    "fallbackName": "Mutfak",
+    "createDishDescription": "Menü öğesi ekleyin, ardından isteğe bağlı tarif tanımlayın.",
+    "dishNamePlaceholder": "örn. Margherita Pizza",
+    "menuItemsDescription": "Detayları ve tarifi düzenlemek için bir karta tıklayın.",
+    "editDetailsDescription": "Detayları güncelleyin ve tarifi yönetin.",
+    "loadingMenuItems": "Menü öğeleri yükleniyor...",
+    "elapsedHoursMinutes": "{{hours}}s {{minutes}}dk",
+    "elapsedHours": "{{hours}}s",
+    "elapsedMinutes": "{{count}}dk",
+    "cancelConfirm": "{{orderCode}} numaralı siparişi iptal etmek istediğinize emin misiniz?",
+    "cancelReasonPrompt": "İptal sebebini girin (opsiyonel):",
+    "cancelReasonDefault": "Stok / hammadde yetersiz",
+    "messages": {
+      "dishCreated": "{{name}} oluşturuldu.",
+      "dishCreatedWithRecipe": "{{name}} tarifle oluşturuldu.",
+      "dishUpdated": "{{name}} güncellendi.",
+      "recipeSaved": "{{name}} tarifi kaydedildi.",
+      "addIngredientBeforeSave": "Tarifi kaydetmeden önce en az bir malzeme ekleyin.",
+      "orderCancelled": "{{orderCode}} numaralı sipariş iptal edildi."
     }
   },
   "inventory": {
@@ -432,7 +540,8 @@
       "blockedDishes": "Engelli yemekler",
       "limitedByStock": "Stokla sınırlı",
       "missingRecipes": "Eksik tarifler",
-      "update": "Güncelle"
+      "update": "Güncelle",
+      "byUser": "{{quantity}} {{unit}} • {{name}} tarafından"
     },
     "ingredients": {
       "addTitle": "Yeni malzeme ekle",
@@ -456,7 +565,9 @@
       "description": "Mutfak personelinden gelen malzeme taleplerini onaylayın veya reddedin",
       "addToForm": "Forma ekle",
       "empty": "Talep yok",
-      "emptyDescription": "Hepsi tamam. Bekleyen talep yok."
+      "emptyDescription": "Hepsi tamam. Bekleyen talep yok.",
+      "approved": "onaylandı",
+      "rejected": "reddedildi"
     },
     "menu": {
       "title": "Menü öğeleri",
@@ -465,6 +576,7 @@
       "recipe": "Tarif",
       "status": "Durum",
       "stockImpact": "Stok etkisi",
+      "noRecipe": "Tarif yok",
       "recipeMissing": "Tarif eksik",
       "orderable": "Siparişe açık",
       "hidden": "Gizli",
@@ -478,7 +590,8 @@
       "updated": "Stok güncellendi",
       "newStock": "Yeni: {{value}} {{unit}}",
       "empty": "Henüz hareket yok",
-      "emptyDescription": "Stok güncellemeleri burada görünecek."
+      "emptyDescription": "Stok güncellemeleri burada görünecek.",
+      "ingredientFallback": "Malzeme"
     },
     "messages": {
       "requestLoaded": "{{name}} ekleme formuna yüklendi.",
@@ -519,8 +632,138 @@
     "plan": {
       "none": "Aktif plan yok",
       "current": "Mevcut plan",
+      "monthly": "{{price}}/ay",
       "use": "{{name}} planını kullan",
       "select": "Bir plan seçin"
+    },
+    "onlineOrdersLink": "Online Siparişler",
+    "overview": {
+      "nextStepsTitle": "Sonraki adımlar",
+      "nextStepsDescription": "Yalnızca işlemleri engelleyen kurulum görevlerine odaklanın.",
+      "setupCompleteTitle": "Kurulum tamamlandı",
+      "setupCompleteDescription": "Personel, masalar, menü ve plan yapılandırıldı.",
+      "orderingLinksTitle": "Sipariş bağlantıları",
+      "orderingLinksDescription": "Herkese açık sipariş bağlantılarını erişilebilir tutun.",
+      "pickupMenu": "Gel-al menüsü",
+      "copyLink": "Bağlantıyı kopyala",
+      "pickupLinkHint": "Gel-al bağlantısı için Ayarlar'dan restoran slug'ı belirleyin.",
+      "orderStatusScreen": "Sipariş Durumu Ekranı",
+      "orderStatusScreenHint": "Gel-al / tezgah müşterileri için tam ekran TV görünümü.",
+      "openOrderStatusScreen": "Sipariş Durumu Ekranını Aç",
+      "exampleTableQr": "Örnek masa QR bağlantısı",
+      "addTableForLinks": "Salon sipariş bağlantıları için masa ekleyin.",
+      "displayScreenHint": "Ekran için Ayarlar'dan restoran slug'ı belirleyin."
+    },
+    "staff": {
+      "addTitle": "Personel ekle",
+      "addDescription": "Mutfak, kasiyer, garson veya stok rolleri için hesap oluşturun.",
+      "currentTitle": "Mevcut personel",
+      "currentDescription": "Personel listesini okunaklı ve role odaklı tutun.",
+      "addEmployee": "Personel ekle",
+      "emptyTitle": "Henüz personel yok",
+      "emptyDescription": "Soldaki formdan ilk çalışan hesabını ekleyin.",
+      "headers": {
+        "name": "Ad",
+        "role": "Rol",
+        "email": "E-posta",
+        "phone": "Telefon"
+      }
+    },
+    "tables": {
+      "createTitle": "Masa oluştur",
+      "createDescription": "Ad verin, koltuk sayısını ayarlayın; kaydedince QR bağlantısı hazır olur.",
+      "listTitle": "Masalar",
+      "listDescription": "Her masa, misafirlerin tarayıp sipariş vermesi için QR önizlemesi alır.",
+      "localOriginWarning": "QR linki için public adres bulunamadı. api/.env içinde CLIENT_ORIGINS veya PUBLIC_APP_URL ayarlayın (ör. Vercel URL'niz).",
+      "guestLinks": "Misafir linkleri:",
+      "emptyTitle": "Henüz masa yok",
+      "emptyDescription": "Salon siparişi için ilk masayı ekleyin."
+    },
+    "menu": {
+      "kitchenOwnedTitle": "Mutfak yemekleri",
+      "kitchenOwnedDescription": "Mutfak personeli artık yemek ve tarif oluşturur. Sahip canlı menüyü inceler ve görünürlüğü yönetir.",
+      "createFlow": "Oluşturma akışı",
+      "createFlowDescription": "Şef mutfakta yemeği oluşturur, tarifi yazar ve eksik malzemeler için stoktan ister.",
+      "ownerActions": "Sahip işlemleri",
+      "ownerActionsDescription": "Menü öğelerini gizleyebilir/gösterebilir ve stok bağlantısını inceleyebilirsiniz.",
+      "itemsTitle": "Menü öğeleri",
+      "itemsDescription": "Mutfak yemek ekler. Sahip canlı menüyü inceler ve görünürlüğü buradan yönetir.",
+      "available": "Müsait",
+      "unavailable": "Müsait değil",
+      "servingsFromIngredients": "Malzemelerden {{count}} porsiyon",
+      "noIngredientRecipe": "Malzeme tarifi yok",
+      "recipeReady": "Tarif hazır",
+      "missingRecipe": "Tarif eksik",
+      "ingredientLimited": "Malzeme sınırlı",
+      "noKitchenRecipe": "Mutfak tarif göndermedi",
+      "visible": "Görünür",
+      "hidden": "Gizli",
+      "viewRecipe": "Tarifi görüntüle",
+      "emptyTitle": "Henüz menü öğesi yok",
+      "emptyDescription": "İlk yemeği mutfak çalışma alanından ekleyecek.",
+      "recipeViewTitle": "Tarif görünümü",
+      "recipeViewNamed": "{{name}} tarifi",
+      "recipeViewDescription": "Mutfak tarifi yönetir. Sahip malzeme ilişkisini burada inceler.",
+      "menuItemLabel": "Menü öğesi",
+      "recipeState": "Tarif durumu: {{status}}",
+      "menuState": "Menü durumu: {{state}}",
+      "lastUpdatedBy": "{{name}} tarafından {{date}} güncellendi",
+      "noKitchenRecipeYet": "Mutfak henüz tarif göndermedi.",
+      "noKitchenRecipeEmptyTitle": "Henüz mutfak tarifi yok",
+      "noKitchenRecipeEmptyDescription": "Mutfak personeli önce yemek tarifini oluşturmalı.",
+      "noMenuForRecipeTitle": "Henüz menü öğesi yok",
+      "noMenuForRecipeDescription": "Tarif görünmesi için mutfağın yemek oluşturması gerekir.",
+      "headers": {
+        "item": "Öğe",
+        "category": "Kategori",
+        "price": "Fiyat",
+        "availability": "Uygunluk",
+        "recipe": "Tarif",
+        "actions": "İşlemler"
+      }
+    },
+    "inventory": {
+      "addTitle": "Malzeme ekle",
+      "addDescription": "Menü tariflerinin tüketeceği stok kalemleri oluşturun.",
+      "ingredientName": "Malzeme adı",
+      "listTitle": "Stok malzemeleri",
+      "listDescription": "Buradaki stok güncellemeleri tarif tabanlı menü uygunluğunu doğrudan etkiler.",
+      "lowStock": "Düşük stok",
+      "healthy": "Sağlıklı",
+      "minUnit": "{{unit}} • min {{min}}",
+      "updateStock": "Stoku güncelle",
+      "emptyTitle": "Henüz malzeme yok",
+      "emptyDescription": "Tarif tabanlı menü kontrolü için soldan stok malzemesi ekleyin."
+    },
+    "settings": {
+      "title": "Restoran ayarları",
+      "description": "Marka ve sipariş kontrolleri tek yerde.",
+      "logoUrl": "Logo URL",
+      "pickupSlug": "Gel-al slug",
+      "publicOrdering": "Herkese açık salon siparişi",
+      "publicOrderingHint": "Müşterilerin masa linklerinden sipariş vermesine izin verin.",
+      "pickupOrdering": "Gel-al siparişi",
+      "pickupOrderingHint": "Online siparişler için gel-al menü sayfasını gösterin.",
+      "saveSettings": "Ayarları kaydet",
+      "subscriptionTitle": "Abonelik ve plan",
+      "subscriptionActiveDescription": "Mevcut planınızı görüntüleyin veya farklı bir plana geçmek için yeni ödeme başlatın.",
+      "subscriptionLockedDescription": "Plan seçimi ilk girişte açılan pencereden yapılır.",
+      "dashboardLocked": "Dashboard kilitli. Plan seçimi ve ödeme penceresini tamamlayın; ardından ayarlardan planınızı yönetebilirsiniz."
+    },
+    "messages": {
+      "selectPlan": "Bir plan seçin.",
+      "redirectingPayment": "Güvenli ödemeye yönlendiriliyor...",
+      "paymentPageFailed": "Iyzico ödeme sayfası açılamadı. Lütfen kısa süre sonra tekrar deneyin.",
+      "paymentStartFailed": "Ödeme başlatılamadı.",
+      "settingsUpdated": "Ayarlar güncellendi.",
+      "employeeAdded": "Personel eklendi.",
+      "tableCreated": "Masa oluşturuldu.",
+      "tableUpdated": "Masa güncellendi.",
+      "menuItemCreated": "Menü öğesi oluşturuldu.",
+      "menuUpdated": "Menü güncellendi.",
+      "ingredientAdded": "Malzeme eklendi.",
+      "stockUpdated": "{{name}} stoğu güncellendi.",
+      "qrPrintFailed": "QR yazdırılamadı."
     }
   },
   "ownerOnline": {
@@ -689,5 +932,150 @@
       "newTitle": "Yakin yeni teslimat",
       "newBody": "Bolgenizde hazir siparis var. Kurye sekmesini acin."
     }
+  },
+  "oss": {
+    "loading": "Siparis durum ekrani yukleniyor...",
+    "unavailable": "Siparis durum ekrani kullanilamiyor",
+    "urlHint": "URL: /display/{{slug}}",
+    "eyebrow": "Siparis Durum Ekrani",
+    "subtitle": "Gel-al / tezgah siparisleri · sadece bugun",
+    "autoRefresh": "Her {{seconds}} sn otomatik yenileme",
+    "ordersCount": "{{count}} siparis",
+    "columns": {
+      "preparing": {
+        "title": "Hazirlaniyor",
+        "subtitle": "Hazirlaniyor",
+        "empty": "Hazirlanan siparis yok"
+      },
+      "ready": {
+        "title": "Hazir",
+        "subtitle": "Teslim almaya hazir",
+        "empty": "Hazir siparis yok"
+      },
+      "completed": {
+        "title": "Teslim Edildi",
+        "subtitle": "Son tamamlananlar",
+        "empty": "Henuz tamamlanan siparis yok"
+      }
+    }
+  },
+  "notifications": {
+    "ariaLabel": "Bildirimler",
+    "title": "Bildirimler",
+    "unread": "{{count}} okunmamis",
+    "readAll": "Tumunu oku",
+    "clear": "Temizle",
+    "enableAlerts": "Acilir uyarilari etkinlestir",
+    "empty": "Henuz bildirim yok."
+  },
+  "payment": {
+    "title": "Odeme",
+    "checkoutTitle": "Iyzico ile odeme",
+    "sandboxHint": "Sandbox modu. Test kartlari ile odeme yapabilirsiniz.",
+    "missingOrderId": "Siparis bulunamadi (orderId yok).",
+    "backToOrders": "Siparislerime don",
+    "pageNotRetrieved": "Iyzico odeme sayfasi alinamadi.",
+    "startFailed": "Odeme baslatilamadi.",
+    "preparingPage": "Odeme sayfasi hazirlaniyor...",
+    "startHint": "Odeme sayfasini baslatmak icin Odemeye Git butonuna basin.",
+    "redirecting": "Yonlendiriliyor...",
+    "goToPayment": "Odemeye Git",
+    "formLoading": "Iyzico Sandbox formu yukleniyor. Yuklenmiyorsa onceki butona tekrar basin.",
+    "order": {
+      "successTitle": "Odeme basarili",
+      "successDescription": "Siparisiniz onaylandi. Mutfak hazirlamaya basliyor.",
+      "failureTitle": "Odeme basarisiz",
+      "failureDescription": "Odeme tamamlanamadi. Tekrar denemek isterseniz Odemeye Git butonunu kullanabilirsiniz."
+    },
+    "subscription": {
+      "successTitle": "Plan aktif",
+      "successDescription": "Odemeniz basariyla alindi. Plan saniyeler icinde owner panelinde aktif gorunecek.",
+      "failureTitle": "Plan odemesi basarisiz",
+      "failureDescription": "Plan odemesi tamamlanamadi. Owner panelinden tekrar deneyebilirsiniz."
+    },
+    "reasons": {
+      "missing_token": "Iyzico token bulunamadi.",
+      "payment_not_found": "Bu odeme kaydi bulunamadi.",
+      "conversation_mismatch": "Iyzico ve sistem arasinda dogrulama uyusmazligi.",
+      "iyzico_retrieve_failed": "Iyzico tarafindan dogrulama alinamadi.",
+      "server_error": "Sunucu hatasi.",
+      "subscription_not_found": "Abonelik kaydi bulunamadi.",
+      "price_mismatch": "Odenen tutar plan ucretiyle eslesmedi.",
+      "payment_failed": "Odeme reddedildi.",
+      "ORDER_ALREADY_PAID": "Odeme zaten yapilmis."
+    },
+    "planLabel": "Plan:",
+    "subscriptionHint": "Owner paneline donerek plan durumunu kontrol edebilirsiniz.",
+    "orderLabel": "Siparis:",
+    "loadingStatus": "Durum aliniyor...",
+    "orderStatus": "Siparis durumu:",
+    "paymentStatusLabel": "Odeme durumu:",
+    "iyzicoPaymentId": "iyzico paymentId: {{id}}",
+    "ownerPanel": "Owner paneline don",
+    "myOrders": "Siparislerim",
+    "retryPayment": "Tekrar Odemeye Git",
+    "restaurants": "Restoranlar"
+  },
+  "onlineRestaurant": {
+    "loadingMenu": "Menu yukleniyor...",
+    "allRestaurants": "Tum restoranlar",
+    "defaultDescription": "Menuyu inceleyin ve urun ekleyin.",
+    "minimum": "Minimum: {{amount}}",
+    "delivery": "Teslimat: {{amount}}",
+    "estimatedTime": "Tahmini sure: {{minutes}} dk",
+    "statusOpen": "Acik",
+    "statusClosed": "Kapali",
+    "statusLabel": "Durum:",
+    "closedWarning": "Restoran su an kapali. Menuyu gorebilirsiniz ancak siparis veremezsiniz.",
+    "outOfZoneWarning": "Secili konumunuz bu restoranin teslimat alaninin disinda. Siparis veremezsiniz.",
+    "emptyMenu": "Bu restoranda aktif menu urunu bulunmuyor.",
+    "completeOrder": "Siparisi Tamamla",
+    "cartConflict": "Sepetinizde baska restorana ait urunler var. Sepeti temizleyip devam etmek ister misiniz?"
+  },
+  "myOrders": {
+    "title": "Online Siparislerim",
+    "description": "Hesabiniza ait online siparisler.",
+    "logout": "Cikis",
+    "loading": "Siparisler yukleniyor...",
+    "empty": "Henuz online siparisiniz yok.",
+    "viewRestaurants": "Restoranlari gor",
+    "restaurantFallback": "Restoran",
+    "subtotal": "Ara toplam",
+    "delivery": "Teslimat",
+    "total": "Toplam"
+  },
+  "print": {
+    "restaurantFallback": "Restoran",
+    "customerReceipt": "MUSTERI FISI",
+    "kitchenTicket": "MUTFAK FISI",
+    "order": "Siparis",
+    "date": "Tarih",
+    "type": "Tip",
+    "location": "Konum",
+    "customer": "Musteri",
+    "phone": "Telefon",
+    "address": "Adres",
+    "time": "Saat",
+    "qty": "Adet",
+    "product": "Urun",
+    "unitPrice": "Birim",
+    "amount": "Tutar",
+    "noItems": "Urun yok",
+    "productFallback": "Urun",
+    "subtotal": "Ara Toplam",
+    "delivery": "Teslimat",
+    "discount": "Indirim",
+    "tax": "Vergi",
+    "total": "TOPLAM",
+    "payment": "Odeme",
+    "paymentStatus": {
+      "paid": "Odendi",
+      "pending": "Bekliyor",
+      "failed": "Basarisiz"
+    },
+    "itemNote": "Not: {{note}}",
+    "orderNote": "Siparis Notu",
+    "thanks": "Bizi tercih ettiginiz icin tesekkurler.",
+    "enjoy": "Afiyet olsun!"
   }
 }
