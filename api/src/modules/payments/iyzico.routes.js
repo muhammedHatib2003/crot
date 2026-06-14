@@ -9,7 +9,14 @@ const {
   getSubscriptionPaymentStatus
 } = require("./subscription.service");
 
+const config = require("../../config");
+
 const router = express.Router();
+
+function paymentResultUrl(query = "") {
+  const base = String(config.publicAppUrl || config.clientUrl || "").replace(/\/+$/, "");
+  return `${base}/payment/result${query ? `?${query}` : ""}`;
+}
 
 function sendError(res, status, message, code) {
   return res.status(status).json({
@@ -68,21 +75,46 @@ router.post("/iyzico/checkout", authenticate, async (req, res) => {
   }
 });
 
+async function handleOrderCallback(req, res) {
+  try {
+    const token = String(req.body?.token || req.query?.token || "").trim();
+    const result = await handleIyzicoCallback({ token });
+    return res.redirect(303, result.redirectUrl);
+  } catch (error) {
+    console.error("iyzico order callback failed:", error);
+    return res.redirect(303, paymentResultUrl("status=failure&reason=server_error"));
+  }
+}
+
+async function handleSubscriptionCallbackRequest(req, res) {
+  try {
+    const token = String(req.body?.token || req.query?.token || "").trim();
+    const result = await handleSubscriptionCallback({ token });
+    return res.redirect(303, result.redirectUrl);
+  } catch (error) {
+    console.error("iyzico subscription callback failed:", error);
+    return res.redirect(303, paymentResultUrl("kind=subscription&status=failure&reason=server_error"));
+  }
+}
+
 router.post(
   "/iyzico/callback",
   express.urlencoded({ extended: true }),
   express.json(),
-  async (req, res) => {
-    try {
-      const token = String(req.body?.token || req.query?.token || "").trim();
-      const result = await handleIyzicoCallback({ token });
-      return res.redirect(303, result.redirectUrl);
-    } catch (error) {
-      console.error("POST /api/payments/iyzico/callback failed:", error);
-      return res.redirect(303, "/payment/result?status=failure&reason=server_error");
-    }
-  }
+  handleOrderCallback
 );
+
+router.get("/iyzico/callback", handleOrderCallback);
+
+router.post(
+  "/iyzico/subscription/callback",
+  express.urlencoded({ extended: true }),
+  express.json(),
+  handleSubscriptionCallbackRequest
+);
+
+router.get("/iyzico/subscription/callback", handleSubscriptionCallbackRequest);
+
 
 router.get("/iyzico/orders/:orderId", authenticate, async (req, res) => {
   try {
@@ -168,22 +200,6 @@ router.post(
       }
       console.error("POST /api/payments/iyzico/subscription/checkout failed:", error);
       return sendError(res, 500, "Abonelik odemesi baslatilamadi.", "INTERNAL_ERROR");
-    }
-  }
-);
-
-router.post(
-  "/iyzico/subscription/callback",
-  express.urlencoded({ extended: true }),
-  express.json(),
-  async (req, res) => {
-    try {
-      const token = String(req.body?.token || req.query?.token || "").trim();
-      const result = await handleSubscriptionCallback({ token });
-      return res.redirect(303, result.redirectUrl);
-    } catch (error) {
-      console.error("POST /api/payments/iyzico/subscription/callback failed:", error);
-      return res.redirect(303, "/payment/result?kind=subscription&status=failure&reason=server_error");
     }
   }
 );

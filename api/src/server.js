@@ -50,6 +50,15 @@ const allowedOrigins = new Set(
     .filter(Boolean)
 );
 
+const PAYMENT_CALLBACK_PATHS = new Set([
+  "/api/payments/iyzico/callback",
+  "/api/payments/iyzico/subscription/callback"
+]);
+
+function isPaymentCallbackPath(pathname) {
+  return PAYMENT_CALLBACK_PATHS.has(String(pathname || "").split("?")[0]);
+}
+
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) {
@@ -72,10 +81,23 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 };
 
+const permissiveCorsOptions = {
+  origin: true,
+  credentials: false,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+};
+
+function applyCors(req, res, next) {
+  if (isPaymentCallbackPath(req.path)) {
+    return cors(permissiveCorsOptions)(req, res, next);
+  }
+  return cors(corsOptions)(req, res, next);
+}
+
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(compression());
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.use(applyCors);
+app.options("*", applyCors);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
