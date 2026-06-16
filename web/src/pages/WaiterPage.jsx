@@ -26,7 +26,7 @@ function buildDraftFromOrder(order) {
     productId: item.productId,
     name: item.name,
     quantity: item.quantity,
-    notes: item.notes || ""
+    notes: item.notes || item.note || ""
   }));
 }
 
@@ -162,7 +162,6 @@ export default function WaiterPage({ session, onLogout }) {
           setDraftItems([]);
           return "";
         }
-        setDraftItems(buildDraftFromOrder(stillOpen.pendingOrder));
         return currentTableId;
       });
     } catch (requestError) {
@@ -264,6 +263,12 @@ export default function WaiterPage({ session, onLogout }) {
 
     setDraftItems((currentItems) =>
       currentItems.map((item) => (item.id === draftItemId ? { ...item, quantity } : item))
+    );
+  }
+
+  function updateDraftNotes(draftItemId, notes) {
+    setDraftItems((currentItems) =>
+      currentItems.map((item) => (item.id === draftItemId ? { ...item, notes } : item))
     );
   }
 
@@ -551,7 +556,12 @@ export default function WaiterPage({ session, onLogout }) {
                             <div className="mt-3 space-y-2">
                               {order.items.map((item) => (
                                 <div key={item.id} className="rounded-xl bg-white px-3 py-3 text-sm text-slate-700">
-                                  {item.quantity} x {item.name}
+                                  <p>
+                                    {item.quantity} x {item.name}
+                                  </p>
+                                  {item.notes || item.note ? (
+                                    <p className="mt-1 text-xs text-slate-500">{item.notes || item.note}</p>
+                                  ) : null}
                                 </div>
                               ))}
                             </div>
@@ -644,6 +654,12 @@ export default function WaiterPage({ session, onLogout }) {
                                 </button>
                               </div>
                             </div>
+                            <textarea
+                              className="mt-3 min-h-[60px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-400"
+                              placeholder={t("order.notesPlaceholder")}
+                              value={item.notes || ""}
+                              onChange={(event) => updateDraftNotes(item.id, event.target.value)}
+                            />
                           </div>
                         );
                       })}

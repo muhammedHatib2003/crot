@@ -193,10 +193,10 @@ export default function PickupOrderStatusPanel({
         </div>
       </div>
 
-      {order.notes ? (
+      {order.notes || order.note ? (
         <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800">Order note</p>
-          <p className="mt-1">{order.notes}</p>
+          <p className="mt-1">{order.notes || order.note}</p>
         </div>
       ) : null}
 
@@ -212,7 +212,9 @@ export default function PickupOrderStatusPanel({
                 <p className="text-xs text-slate-500">
                   {item.quantity} × {formatCurrency(item.price)}
                 </p>
-                {item.notes ? <p className="mt-1 text-xs text-slate-600">{item.notes}</p> : null}
+                {item.notes || item.note ? (
+                  <p className="mt-1 text-xs text-slate-600">{item.notes || item.note}</p>
+                ) : null}
               </div>
               <p className="shrink-0 font-semibold text-brand-800">
                 {formatCurrency((item.price || 0) * (item.quantity || 0))}

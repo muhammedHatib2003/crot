@@ -606,6 +606,7 @@
     "planRequired": "Personel, masa ve menü araçları etkinleşmeden önce bir plan seçilmesi gerekir.",
     "tabs": {
       "overview": "Genel bakış",
+      "reports": "Raporlar",
       "staff": "Personel",
       "tables": "Masalar",
       "menu": "Menü",
@@ -637,6 +638,64 @@
       "select": "Bir plan seçin"
     },
     "onlineOrdersLink": "Online Siparişler",
+    "reports": {
+      "filtersTitle": "Satış raporu",
+      "filtersDescription": "Günlük hareketleri görüntüleyin ve CSV olarak indirin.",
+      "presets": {
+        "today": "Bugün",
+        "month": "Bu ay",
+        "yearly": "Son 12 ay (aylık)"
+      },
+      "from": "Başlangıç",
+      "to": "Bitiş",
+      "groupBy": "Grupla",
+      "groupByDay": "Günlük",
+      "groupByMonth": "Aylık",
+      "refresh": "Raporu getir",
+      "downloadCsv": "CSV indir",
+      "downloading": "İndiriliyor...",
+      "downloadStarted": "Satış raporu indirildi.",
+      "loading": "Satış verileri yükleniyor...",
+      "breakdownTitle": "Dönem özeti",
+      "breakdownDescription": "Seçilen aralıktaki günlük veya aylık satış toplamları.",
+      "channelTitle": "Kanal dağılımı",
+      "channelDescription": "Salon, gel-al ve teslimat satışları.",
+      "transactionsTitle": "Günlük satış hareketleri",
+      "transactionsDescription": "Ödenmiş siparişlerin detay listesi.",
+      "noDataTitle": "Bu aralıkta satış yok",
+      "noDataDescription": "Seçilen tarihlerde ödenmiş sipariş bulunamadı.",
+      "noTransactionsTitle": "Hareket yok",
+      "noTransactionsDescription": "Bu aralıkta listelenecek satış hareketi yok.",
+      "metrics": {
+        "revenue": "Toplam ciro",
+        "revenueDetail": "Seçilen dönemdeki ödenmiş siparişler",
+        "orders": "Sipariş sayısı",
+        "ordersDetail": "Tamamlanan ödemeler",
+        "averageTicket": "Ortalama sepet",
+        "averageTicketDetail": "Ciro / sipariş",
+        "cash": "Nakit",
+        "cardOnline": "Kart {{card}} · Online {{online}}"
+      },
+      "columns": {
+        "period": "Dönem",
+        "orders": "Sipariş",
+        "revenue": "Ciro",
+        "cash": "Nakit",
+        "card": "Kart",
+        "online": "Online",
+        "date": "Tarih",
+        "order": "Sipariş no",
+        "type": "Tür",
+        "payment": "Ödeme",
+        "customer": "Müşteri / Masa",
+        "total": "Toplam"
+      },
+      "orderTypes": {
+        "DINE_IN": "Salon",
+        "PICKUP": "Gel-al",
+        "DELIVERY": "Teslimat"
+      }
+    },
     "overview": {
       "nextStepsTitle": "Sonraki adımlar",
       "nextStepsDescription": "Yalnızca işlemleri engelleyen kurulum görevlerine odaklanın.",

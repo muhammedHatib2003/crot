@@ -42,7 +42,7 @@ function normalizeLineItems(rawItems, options = {}) {
   return items.map((item) => {
     const productId = String(item?.productId || item?.menuItemId || "").trim();
     const quantity = Number(item?.quantity);
-    const notes = normalizeOptionalText(item?.notes);
+    const notes = normalizeOptionalText(item?.notes || item?.note);
 
     if (!productId) {
       throw new PosServiceError("Each order item must include productId.", 400);
@@ -85,7 +85,8 @@ function buildOrderItemsData(items, productsById, restaurantId) {
       nameSnapshot: product.name,
       priceCents: product.priceCents,
       quantity: item.quantity,
-      notes: item.notes
+      notes: item.notes || item.note || null,
+      note: item.notes || item.note || null
     };
   });
 }
@@ -214,6 +215,7 @@ async function savePendingOrder(client, order, payload) {
       customerName: normalizeOptionalText(payload.customerName) ?? order.customerName,
       customerPhone: normalizeOptionalText(payload.customerPhone) ?? order.customerPhone,
       notes: normalizeOptionalText(payload.notes) ?? order.notes,
+      note: normalizeOptionalText(payload.notes) ?? order.note ?? order.notes,
       totalCents,
       items: {
         deleteMany: {},
@@ -248,6 +250,7 @@ async function createOrderRecord(client, payload) {
       customerPhone: normalizeOptionalText(payload.customerPhone),
       customerAddress: normalizeOptionalText(payload.customerAddress),
       notes: normalizeOptionalText(payload.notes),
+      note: normalizeOptionalText(payload.notes),
       subtotalCents,
       deliveryFeeCents,
       totalCents,
@@ -287,7 +290,7 @@ async function createOrAppendTableOrder(payload) {
         ...existingPendingOrder.items.map((item) => ({
           productId: item.menuItemId,
           quantity: item.quantity,
-          notes: item.notes || null
+          notes: item.notes || item.note || null
         })),
         ...normalizeLineItems(payload.items)
       ];

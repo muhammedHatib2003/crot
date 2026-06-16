@@ -99,6 +99,29 @@ export async function apiRequest(path, options = {}) {
   return payload;
 }
 
+export async function apiDownload(path, options = {}) {
+  const { token } = options;
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "GET",
+    headers
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const error = new Error(payload.message || "Download failed.");
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.blob();
+}
+
 export async function getOnlineRestaurants(params = {}) {
   const payload = await apiRequest(`/online/restaurants${toQueryString(params)}`);
   return payload.data || {};

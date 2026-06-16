@@ -88,7 +88,9 @@ export default function OrderCard({ order, busy, onAction, onPrint, onCancel }) 
             <p className="text-lg font-semibold leading-tight text-slate-950 sm:text-xl">
               {item.quantity} x {item.name}
             </p>
-            {item.notes ? <p className="mt-1.5 text-sm text-slate-600 sm:mt-2 sm:text-base">{item.notes}</p> : null}
+            {(item.notes || item.note) ? (
+              <p className="mt-1 text-sm text-slate-600 sm:mt-2 sm:text-base">{item.notes || item.note}</p>
+            ) : null}
           </div>
         ))}
       </div>

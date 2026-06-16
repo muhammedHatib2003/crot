@@ -532,6 +532,7 @@
     "planRequired": "الخطة مطلوبة قبل تفعيل أدوات الموظفين والطاولات والقائمة.",
     "tabs": {
       "overview": "نظرة عامة",
+      "reports": "التقارير",
       "staff": "الموظفون",
       "tables": "الطاولات",
       "menu": "القائمة",
@@ -560,6 +561,64 @@
       "current": "الخطة الحالية",
       "use": "استخدام {{name}}",
       "select": "اختر خطة"
+    },
+    "reports": {
+      "filtersTitle": "تقرير المبيعات",
+      "filtersDescription": "اعرض الحركات اليومية وحمّل تقارير CSV.",
+      "presets": {
+        "today": "اليوم",
+        "month": "هذا الشهر",
+        "yearly": "آخر 12 شهرًا (شهري)"
+      },
+      "from": "من",
+      "to": "إلى",
+      "groupBy": "تجميع حسب",
+      "groupByDay": "يومي",
+      "groupByMonth": "شهري",
+      "refresh": "تحميل التقرير",
+      "downloadCsv": "تنزيل CSV",
+      "downloading": "جارٍ التنزيل...",
+      "downloadStarted": "تم تنزيل تقرير المبيعات.",
+      "loading": "جارٍ تحميل بيانات المبيعات...",
+      "breakdownTitle": "ملخص الفترة",
+      "breakdownDescription": "إجماليات يومية أو شهرية للفترة المحددة.",
+      "channelTitle": "توزيع القنوات",
+      "channelDescription": "مبيعات الصالة والاستلام والتوصيل.",
+      "transactionsTitle": "حركات المبيعات اليومية",
+      "transactionsDescription": "قائمة تفصيلية بالطلبات المدفوعة.",
+      "noDataTitle": "لا توجد مبيعات في هذه الفترة",
+      "noDataDescription": "لم يتم العثور على طلبات مدفوعة في التواريخ المحددة.",
+      "noTransactionsTitle": "لا توجد حركات",
+      "noTransactionsDescription": "لا توجد حركات مبيعات لعرضها في هذه الفترة.",
+      "metrics": {
+        "revenue": "إجمالي الإيراد",
+        "revenueDetail": "الطلبات المدفوعة في الفترة المحددة",
+        "orders": "عدد الطلبات",
+        "ordersDetail": "المدفوعات المكتملة",
+        "averageTicket": "متوسط الفاتورة",
+        "averageTicketDetail": "الإيراد / الطلبات",
+        "cash": "نقدًا",
+        "cardOnline": "بطاقة {{card}} · إلكتروني {{online}}"
+      },
+      "columns": {
+        "period": "الفترة",
+        "orders": "الطلبات",
+        "revenue": "الإيراد",
+        "cash": "نقدًا",
+        "card": "بطاقة",
+        "online": "إلكتروني",
+        "date": "التاريخ",
+        "order": "الطلب",
+        "type": "النوع",
+        "payment": "الدفع",
+        "customer": "العميل / الطاولة",
+        "total": "الإجمالي"
+      },
+      "orderTypes": {
+        "DINE_IN": "صالة",
+        "PICKUP": "استلام",
+        "DELIVERY": "توصيل"
+      }
     }
   },
   "ownerOnline": {

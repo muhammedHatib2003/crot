@@ -4,6 +4,7 @@ const PREPARING_STATUSES = ["PENDING", "ACCEPTED", "PREPARING"];
 const READY_STATUSES = ["READY"];
 const COMPLETED_STATUSES = ["COMPLETED", "PAID"];
 const DISPLAY_ORDER_TYPES = ["PICKUP"];
+const COMPLETED_DISPLAY_TTL_MS = 5 * 60 * 1000;
 
 const DISPLAY_STATUS_LABELS = {
   PENDING: "Preparing",
@@ -40,6 +41,27 @@ function sanitizeCustomerName(value) {
   return normalized.slice(0, 80);
 }
 
+function getOrderHandoffAt(order) {
+  if (COMPLETED_STATUSES.includes(order.status)) {
+    return order.completedAt || order.kitchenCompletedAt || order.readyAt || order.updatedAt || null;
+  }
+
+  if (order.orderType === "PICKUP" && order.kitchenCompletedAt && READY_STATUSES.includes(order.status)) {
+    return order.kitchenCompletedAt;
+  }
+
+  return null;
+}
+
+function isRecentlyCompleted(order, now = Date.now()) {
+  const handoffAt = getOrderHandoffAt(order);
+  if (!handoffAt) {
+    return false;
+  }
+
+  return now - new Date(handoffAt).getTime() <= COMPLETED_DISPLAY_TTL_MS;
+}
+
 function mapDisplayOrder(order) {
   return {
     id: order.id,
@@ -63,7 +85,9 @@ function groupDisplayOrders(orders) {
       order.orderType === "PICKUP" && order.kitchenCompletedAt && READY_STATUSES.includes(order.status);
 
     if (isPickupHandedOff || COMPLETED_STATUSES.includes(order.status)) {
-      completed.push(mapped);
+      if (isRecentlyCompleted(order)) {
+        completed.push(mapped);
+      }
       return;
     }
 
@@ -110,6 +134,7 @@ async function fetchTodayDisplayOrders(client, restaurantId) {
     select: {
       id: true,
       orderCode: true,
+      orderType: true,
       customerName: true,
       status: true,
       createdAt: true,
@@ -126,11 +151,14 @@ async function fetchTodayDisplayOrders(client, restaurantId) {
 }
 
 module.exports = {
+  COMPLETED_DISPLAY_TTL_MS,
   COMPLETED_STATUSES,
   DISPLAY_ORDER_TYPES,
   PREPARING_STATUSES,
   READY_STATUSES,
   fetchTodayDisplayOrders,
+  getOrderHandoffAt,
   groupDisplayOrders,
+  isRecentlyCompleted,
   mapDisplayOrder
 };

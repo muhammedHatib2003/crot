@@ -114,7 +114,7 @@ function mapOrderItem(item) {
     priceCents: item.priceCents,
     price: item.priceCents / 100,
     quantity: item.quantity,
-    notes: item.notes || null
+    notes: item.notes || item.note || null
   };
 }
 
@@ -172,7 +172,7 @@ function mapOrder(order) {
     distanceKm: order.distanceKm ?? null,
     assignedCourierAccountId: order.assignedCourierAccountId || null,
     courierAcceptedAt: order.courierAcceptedAt || null,
-    notes: order.notes || null,
+    notes: order.notes || order.note || null,
     subtotalCents: Number(order.subtotalCents || order.totalCents || 0),
     subtotal: Number(order.subtotalCents || order.totalCents || 0) / 100,
     deliveryFeeCents: Number(order.deliveryFeeCents || 0),

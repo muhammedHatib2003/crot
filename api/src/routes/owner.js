@@ -18,6 +18,11 @@ const {
   upsertRecipeForMenuItem
 } = require("../services/inventory");
 const { listMenuItems, mapMenuItem, MENU_ITEM_AVAILABILITY_INCLUDE } = require("../utils/menu");
+const {
+  SalesReportError,
+  buildSalesCsv,
+  getSalesReport
+} = require("../services/salesReport.service");
 
 const config = require("../config");
 
@@ -324,6 +329,68 @@ router.use("/employees", requireActiveSubscription);
 router.use("/tables", requireActiveSubscription);
 router.use("/menu", requireActiveSubscription);
 router.use("/inventory", requireActiveSubscription);
+router.use("/reports", requireActiveSubscription);
+
+function handleSalesReportError(res, error, next) {
+  if (error instanceof SalesReportError) {
+    return res.status(error.status).json({ message: error.message });
+  }
+
+  return next(error);
+}
+
+router.get("/reports/sales", async (req, res, next) => {
+  try {
+    if (!req.auth.restaurantId) {
+      return res.status(400).json({ message: "Owner has no restaurant assigned." });
+    }
+
+    const report = await getSalesReport(prisma, req.auth.restaurantId, {
+      from: req.query?.from,
+      to: req.query?.to,
+      groupBy: req.query?.groupBy
+    });
+
+    return res.json({ report });
+  } catch (error) {
+    return handleSalesReportError(res, error, next);
+  }
+});
+
+router.get("/reports/sales/export", async (req, res, next) => {
+  try {
+    if (!req.auth.restaurantId) {
+      return res.status(400).json({ message: "Owner has no restaurant assigned." });
+    }
+
+    const [report, restaurant] = await Promise.all([
+      getSalesReport(prisma, req.auth.restaurantId, {
+        from: req.query?.from,
+        to: req.query?.to,
+        groupBy: req.query?.groupBy
+      }),
+      prisma.restaurant.findUnique({
+        where: {
+          id: req.auth.restaurantId
+        },
+        select: {
+          name: true
+        }
+      })
+    ]);
+
+    const csv = buildSalesCsv(report, restaurant?.name || "Restaurant");
+    const fromLabel = String(req.query?.from || "start").trim();
+    const toLabel = String(req.query?.to || "end").trim();
+    const filename = `sales-${fromLabel}-${toLabel}.csv`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(`\ufeff${csv}`);
+  } catch (error) {
+    return handleSalesReportError(res, error, next);
+  }
+});
 
 router.get("/employees", async (req, res, next) => {
   try {

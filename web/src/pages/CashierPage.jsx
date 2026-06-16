@@ -199,10 +199,13 @@ export default function CashierPage({ session, onLogout }) {
       setOrders(ordersResult.orders || []);
       setProducts(productsResult.products || []);
       setOpenTableId((currentTableId) => {
-        if (!nextTables.some((table) => table.id === currentTableId)) {
+        if (!currentTableId) {
           return "";
         }
-        syncDraftForTable(currentTableId, nextTables);
+        if (!nextTables.some((table) => table.id === currentTableId)) {
+          setDraftItems([]);
+          return "";
+        }
         return currentTableId;
       });
     } catch (requestError) {
@@ -557,7 +560,9 @@ export default function CashierPage({ session, onLogout }) {
                             <p className="font-medium text-slate-900">
                               {item.quantity} x {item.name}
                             </p>
-                            {item.notes ? <p className="mt-0.5 text-xs text-slate-500">{t("cashier.itemNotes", { notes: item.notes })}</p> : null}
+                            {item.notes || item.note ? (
+                              <p className="mt-0.5 text-xs text-slate-500">{t("cashier.itemNotes", { notes: item.notes || item.note })}</p>
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -774,7 +779,9 @@ export default function CashierPage({ session, onLogout }) {
                                 <p className="font-medium text-slate-900">
                                   {item.quantity} x {item.name}
                                 </p>
-                                {item.notes ? <p className="mt-1 text-xs text-slate-500">{item.notes}</p> : null}
+                                {item.notes || item.note ? (
+                                  <p className="mt-1 text-xs text-slate-500">{item.notes || item.note}</p>
+                                ) : null}
                               </div>
                             ))}
                           </div>

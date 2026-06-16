@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiRequest, startSubscriptionCheckout } from "../api";
+import { apiRequest, apiDownload, startSubscriptionCheckout } from "../api";
 import OwnerPlanCheckout from "../components/owner/OwnerPlanCheckout";
 import OwnerPlanGateModal from "../components/owner/OwnerPlanGateModal";
 import TableCreatePanel from "../components/owner/TableCreatePanel";
@@ -21,7 +21,8 @@ import useAppTranslation from "../hooks/useAppTranslation";
 import useOrderNotifications from "../hooks/useOrderNotifications";
 import {
   translateCategory,
-  translateEmployeeRole
+  translateEmployeeRole,
+  translatePaymentMethod
 } from "../utils/locale";
 import { bindVisibilityRefresh, FAST_POLL_MS } from "../utils/polling";
 import {
@@ -48,6 +49,13 @@ const EMPLOYEE_ROLE_OPTIONS = [
 const TABLE_SEAT_OPTIONS = [2, 4, 6, 8, 10];
 const TABLE_STATUS_OPTIONS = ["AVAILABLE", "OCCUPIED", "RESERVED", "CLEANING"];
 const MENU_CATEGORY_OPTIONS = ["General", "Starter", "Main", "Dessert", "Drink"];
+
+function toDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function getPickupLink(restaurantSlug) {
   if (!restaurantSlug) {
@@ -123,6 +131,12 @@ export default function OwnerPage({ session, onLogout }) {
   const [ingredientStockInputs, setIngredientStockInputs] = useState({});
   const [printTableQr, setPrintTableQr] = useState(null);
   const [printingTableId, setPrintingTableId] = useState("");
+  const [reportFrom, setReportFrom] = useState(() => toDateInputValue(new Date()));
+  const [reportTo, setReportTo] = useState(() => toDateInputValue(new Date()));
+  const [reportGroupBy, setReportGroupBy] = useState("day");
+  const [salesReport, setSalesReport] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
     logoUrl: "",
     coverImageUrl: "",
@@ -166,17 +180,22 @@ export default function OwnerPage({ session, onLogout }) {
   const canUseBusinessTools = !requiresPlanSelection;
   const showPlanGate = requiresPlanSelection && !loading;
   const restaurantName = dashboard?.restaurant?.name || t("common.restaurantFallback");
-  const ownerTabs = useMemo(
-    () => [
+  const ownerTabs = useMemo(() => {
+    const tabs = [
       { id: "overview", label: t("owner.tabs.overview") },
       { id: "staff", label: t("owner.tabs.staff") },
       { id: "tables", label: t("owner.tabs.tables") },
       { id: "menu", label: t("owner.tabs.menu") },
       { id: "inventory", label: t("owner.tabs.inventory") },
       { id: "settings", label: t("owner.tabs.settings") }
-    ],
-    [t]
-  );
+    ];
+
+    if (canUseBusinessTools) {
+      tabs.splice(1, 0, { id: "reports", label: t("owner.tabs.reports") });
+    }
+
+    return tabs;
+  }, [canUseBusinessTools, t]);
   const selectedRecipeItem = useMemo(
     () => menuItems.find((item) => item.id === selectedRecipeItemId) || null,
     [menuItems, selectedRecipeItemId]
@@ -366,6 +385,14 @@ export default function OwnerPage({ session, onLogout }) {
       unbindVisibility();
     };
   }, [token, requiresPlanSelection]);
+
+  useEffect(() => {
+    if (activeTab !== "reports" || !canUseBusinessTools || !token) {
+      return;
+    }
+
+    loadSalesReport();
+  }, [activeTab, reportFrom, reportTo, reportGroupBy, canUseBusinessTools, token]);
 
   useEffect(() => {
     if (!printTableQr) {
@@ -759,6 +786,93 @@ export default function OwnerPage({ session, onLogout }) {
       ?.writeText(value)
       .then(() => setMessage(t("common.copied", { label: copiedLabel })))
       .catch(() => setError(t("common.clipboardFailed")));
+  }
+
+  function applyReportPreset(preset) {
+    const now = new Date();
+
+    if (preset === "today") {
+      const value = toDateInputValue(now);
+      setReportFrom(value);
+      setReportTo(value);
+      setReportGroupBy("day");
+      return;
+    }
+
+    if (preset === "month") {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setReportFrom(toDateInputValue(from));
+      setReportTo(toDateInputValue(to));
+      setReportGroupBy("day");
+      return;
+    }
+
+    if (preset === "yearly") {
+      const from = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      setReportFrom(toDateInputValue(from));
+      setReportTo(toDateInputValue(now));
+      setReportGroupBy("month");
+    }
+  }
+
+  async function loadSalesReport() {
+    if (!token || !canUseBusinessTools) {
+      return;
+    }
+
+    setLoadingReport(true);
+
+    try {
+      const params = new URLSearchParams({
+        from: reportFrom,
+        to: reportTo,
+        groupBy: reportGroupBy
+      });
+      const result = await apiRequest(`/owner/reports/sales?${params.toString()}`, { token });
+      setSalesReport(result.report || null);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoadingReport(false);
+    }
+  }
+
+  async function downloadSalesReport() {
+    if (!token || !canUseBusinessTools) {
+      return;
+    }
+
+    setDownloadingReport(true);
+    setError("");
+
+    try {
+      const params = new URLSearchParams({
+        from: reportFrom,
+        to: reportTo,
+        groupBy: reportGroupBy
+      });
+      const blob = await apiDownload(`/owner/reports/sales/export?${params.toString()}`, { token });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `sales-${reportFrom}-${reportTo}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setMessage(t("owner.reports.downloadStarted"));
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setDownloadingReport(false);
+    }
+  }
+
+  function translateReportOrderType(orderType) {
+    const key = `owner.reports.orderTypes.${String(orderType || "").trim().toUpperCase()}`;
+    const translated = t(key);
+    return translated === key ? orderType : translated;
   }
 
   async function handlePrintTableQr(table) {
@@ -1320,6 +1434,168 @@ export default function OwnerPage({ session, onLogout }) {
     );
   }
 
+  function renderReports() {
+    const summary = salesReport?.summary;
+    const reportMetrics = summary
+      ? [
+          {
+            label: t("owner.reports.metrics.revenue"),
+            value: formatCurrency(summary.totalRevenue),
+            detail: t("owner.reports.metrics.revenueDetail")
+          },
+          {
+            label: t("owner.reports.metrics.orders"),
+            value: formatNumber(summary.totalOrders),
+            detail: t("owner.reports.metrics.ordersDetail")
+          },
+          {
+            label: t("owner.reports.metrics.averageTicket"),
+            value: formatCurrency(summary.averageTicket),
+            detail: t("owner.reports.metrics.averageTicketDetail")
+          },
+          {
+            label: t("owner.reports.metrics.cash"),
+            value: formatCurrency(summary.cashTotal),
+            detail: t("owner.reports.metrics.cardOnline", {
+              card: formatCurrency(summary.cardTotal),
+              online: formatCurrency(summary.onlineTotal)
+            })
+          }
+        ]
+      : [];
+
+    return (
+      <div className="space-y-5">
+        <SectionCard
+          title={t("owner.reports.filtersTitle")}
+          description={t("owner.reports.filtersDescription")}
+        >
+          <div className="flex flex-wrap gap-2">
+            <button className={buttonStyles.secondary} onClick={() => applyReportPreset("today")} type="button">
+              {t("owner.reports.presets.today")}
+            </button>
+            <button className={buttonStyles.secondary} onClick={() => applyReportPreset("month")} type="button">
+              {t("owner.reports.presets.month")}
+            </button>
+            <button className={buttonStyles.secondary} onClick={() => applyReportPreset("yearly")} type="button">
+              {t("owner.reports.presets.yearly")}
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label={t("owner.reports.from")}>
+              <input className={fieldStyles} onChange={(event) => setReportFrom(event.target.value)} type="date" value={reportFrom} />
+            </Field>
+            <Field label={t("owner.reports.to")}>
+              <input className={fieldStyles} onChange={(event) => setReportTo(event.target.value)} type="date" value={reportTo} />
+            </Field>
+            <Field label={t("owner.reports.groupBy")}>
+              <select className={fieldStyles} onChange={(event) => setReportGroupBy(event.target.value)} value={reportGroupBy}>
+                <option value="day">{t("owner.reports.groupByDay")}</option>
+                <option value="month">{t("owner.reports.groupByMonth")}</option>
+              </select>
+            </Field>
+            <div className="flex items-end gap-2">
+              <button className={buttonStyles.primary} disabled={loadingReport} onClick={loadSalesReport} type="button">
+                {loadingReport ? t("owner.reports.loading") : t("owner.reports.refresh")}
+              </button>
+              <button className={buttonStyles.secondary} disabled={downloadingReport || loadingReport} onClick={downloadSalesReport} type="button">
+                {downloadingReport ? t("owner.reports.downloading") : t("owner.reports.downloadCsv")}
+              </button>
+            </div>
+          </div>
+        </SectionCard>
+
+        {loadingReport && !salesReport ? (
+          <SectionCard>
+            <p className="text-sm text-slate-600">{t("owner.reports.loading")}</p>
+          </SectionCard>
+        ) : null}
+
+        {summary ? <MetricGrid items={reportMetrics} /> : null}
+
+        {summary ? (
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            <SectionCard title={t("owner.reports.breakdownTitle")} description={t("owner.reports.breakdownDescription")}>
+              {(salesReport?.buckets || []).length === 0 ? (
+                <EmptyState title={t("owner.reports.noDataTitle")} description={t("owner.reports.noDataDescription")} />
+              ) : (
+                <SimpleTable
+                  headers={[
+                    t("owner.reports.columns.period"),
+                    t("owner.reports.columns.orders"),
+                    t("owner.reports.columns.revenue"),
+                    t("owner.reports.columns.cash"),
+                    t("owner.reports.columns.card"),
+                    t("owner.reports.columns.online")
+                  ]}
+                >
+                  {(salesReport?.buckets || []).map((bucket) => (
+                    <tr key={bucket.period}>
+                      <td className="px-4 py-3 font-medium text-slate-900">{bucket.period}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatNumber(bucket.orderCount)}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatCurrency(bucket.revenue)}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatCurrency(bucket.cashTotal)}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatCurrency(bucket.cardTotal)}</td>
+                      <td className="px-4 py-3 text-slate-700">{formatCurrency(bucket.onlineTotal)}</td>
+                    </tr>
+                  ))}
+                </SimpleTable>
+              )}
+            </SectionCard>
+
+            <SectionCard title={t("owner.reports.channelTitle")} description={t("owner.reports.channelDescription")}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("owner.reports.orderTypes.DINE_IN")}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(summary.dineInTotal)}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("owner.reports.orderTypes.PICKUP")}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(summary.pickupTotal)}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("owner.reports.orderTypes.DELIVERY")}</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-950">{formatCurrency(summary.deliveryTotal)}</p>
+                </div>
+              </div>
+            </SectionCard>
+          </div>
+        ) : null}
+
+        <SectionCard title={t("owner.reports.transactionsTitle")} description={t("owner.reports.transactionsDescription")}>
+          {(salesReport?.transactions || []).length === 0 ? (
+            <EmptyState title={t("owner.reports.noTransactionsTitle")} description={t("owner.reports.noTransactionsDescription")} />
+          ) : (
+            <SimpleTable
+              headers={[
+                t("owner.reports.columns.date"),
+                t("owner.reports.columns.order"),
+                t("owner.reports.columns.type"),
+                t("owner.reports.columns.payment"),
+                t("owner.reports.columns.customer"),
+                t("owner.reports.columns.total")
+              ]}
+            >
+              {(salesReport?.transactions || []).map((transaction) => (
+                <tr key={transaction.id}>
+                  <td className="px-4 py-3 text-slate-700">{formatDateTime(transaction.soldAt)}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900">{transaction.orderCode}</td>
+                  <td className="px-4 py-3 text-slate-700">{translateReportOrderType(transaction.orderType)}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {transaction.paymentMethod ? translatePaymentMethod(t, transaction.paymentMethod) : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">{transaction.customerName || transaction.tableName || "—"}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-900">{formatCurrency(transaction.total)}</td>
+                </tr>
+              ))}
+            </SimpleTable>
+          )}
+        </SectionCard>
+      </div>
+    );
+  }
+
   function handleTabChange(tabId) {
     if (showPlanGate) {
       return;
@@ -1376,6 +1652,7 @@ export default function OwnerPage({ session, onLogout }) {
           </SectionCard>
         ) : null}
         {!loading && !showPlanGate && activeTab === "overview" ? renderOverview() : null}
+        {!loading && !showPlanGate && activeTab === "reports" ? renderReports() : null}
         {!loading && !showPlanGate && activeTab === "staff" ? renderStaff() : null}
         {!loading && !showPlanGate && activeTab === "tables" ? renderTables() : null}
         {!loading && !showPlanGate && activeTab === "menu" ? renderMenu() : null}
