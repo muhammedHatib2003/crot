@@ -6,10 +6,6 @@ import LocationPickerMap from "../components/app/LocationPickerMap";
 import RestaurantCard from "../components/online/RestaurantCard";
 import { getCurrentBrowserLocation, reverseGeocodeCoordinates, writeOnlineLocationContext } from "../utils/onlineLocation";
 
-function normalizeSearchValue(value) {
-  return String(value || "").trim();
-}
-
 const SORT_OPTIONS = [
   { value: "nearest", labelKey: "onlineOrder.sort.nearest" },
   { value: "fastest", labelKey: "onlineOrder.sort.fastest" },
@@ -23,9 +19,6 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [city, setCity] = useState("");
-  const [district, setDistrict] = useState("");
   const [sortBy, setSortBy] = useState("nearest");
   const [onlyOpen, setOnlyOpen] = useState(true);
   const [delivery, setDelivery] = useState(false);
@@ -35,6 +28,7 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [mapStatus, setMapStatus] = useState("");
+  const [locationMeta, setLocationMeta] = useState({ city: "", district: "" });
 
   async function requestLocation() {
     setLocationStatus("requesting");
@@ -57,8 +51,10 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
     setMapStatus(t("onlineOrder.map.picked"));
     try {
       const place = await reverseGeocodeCoordinates(nextCoords.lat, nextCoords.lng);
-      setCity((previous) => place.city || previous);
-      setDistrict((previous) => place.district || previous);
+      setLocationMeta({
+        city: place.city || "",
+        district: place.district || ""
+      });
       writeOnlineLocationContext({
         lat: nextCoords.lat,
         lng: nextCoords.lng,
@@ -121,8 +117,10 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
       setCoords({ lat: selectedAddress.latitude, lng: selectedAddress.longitude });
     }
 
-    setCity((previous) => previous || selectedAddress.city || "");
-    setDistrict((previous) => previous || selectedAddress.district || "");
+    setLocationMeta({
+      city: selectedAddress.city || "",
+      district: selectedAddress.district || ""
+    });
     setLocationStatus("saved-address");
   }, [selectedAddress?.id]);
 
@@ -132,20 +130,6 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
     if (coords?.lat != null && coords?.lng != null) {
       params.lat = coords.lat;
       params.lng = coords.lng;
-    }
-
-    const normalizedCity = normalizeSearchValue(city);
-    const normalizedDistrict = normalizeSearchValue(district);
-    if (normalizedCity) {
-      params.city = normalizedCity;
-    }
-    if (normalizedDistrict) {
-      params.district = normalizedDistrict;
-    }
-
-    const normalizedSearch = normalizeSearchValue(search);
-    if (normalizedSearch) {
-      params.search = normalizedSearch;
     }
 
     if (onlyOpen) {
@@ -159,7 +143,16 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
     }
 
     return params;
-  }, [city, coords?.lat, coords?.lng, delivery, district, onlyOpen, pickup, search, sortBy]);
+  }, [coords?.lat, coords?.lng, delivery, onlyOpen, pickup, sortBy]);
+
+  useEffect(() => {
+    writeOnlineLocationContext({
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      city: locationMeta.city,
+      district: locationMeta.district
+    });
+  }, [coords?.lat, coords?.lng, locationMeta.city, locationMeta.district]);
 
   useEffect(() => {
     let active = true;
@@ -192,15 +185,6 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
       active = false;
     };
   }, [queryParams]);
-
-  useEffect(() => {
-    writeOnlineLocationContext({
-      lat: coords?.lat ?? null,
-      lng: coords?.lng ?? null,
-      city,
-      district
-    });
-  }, [city, coords?.lat, coords?.lng, district]);
 
   const shouldShowAddressFallback =
     locationStatus === "denied" || locationStatus === "unsupported" || locationStatus === "saved-address" || locationStatus === "map-picked";
@@ -292,37 +276,7 @@ export default function OnlineOrderPage({ customerSession, onLogout }) {
           </div>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">{t("onlineOrder.filters.search")}</label>
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t("onlineOrder.filters.searchPlaceholder")}
-              value={search}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">{t("onlineOrder.filters.city")}</label>
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              onChange={(event) => setCity(event.target.value)}
-              placeholder={t("onlineOrder.filters.cityPlaceholder")}
-              value={city}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">{t("onlineOrder.filters.district")}</label>
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              onChange={(event) => setDistrict(event.target.value)}
-              placeholder={t("onlineOrder.filters.districtPlaceholder")}
-              value={district}
-            />
-          </div>
-
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-600">{t("onlineOrder.filters.sort")}</label>
             <select

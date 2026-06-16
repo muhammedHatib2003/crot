@@ -125,6 +125,7 @@ export default function OwnerPage({ session, onLogout }) {
   const [printingTableId, setPrintingTableId] = useState("");
   const [settingsForm, setSettingsForm] = useState({
     logoUrl: "",
+    coverImageUrl: "",
     slug: "",
     publicOrderingEnabled: true,
     pickupEnabled: true
@@ -297,6 +298,7 @@ export default function OwnerPage({ session, onLogout }) {
       setSelectedPlanId((previous) => dashboardResult.subscription?.plan?.id || previous || nextPlans[0]?.id || "");
       setSettingsForm({
         logoUrl: dashboardResult.restaurant?.logoUrl || "",
+        coverImageUrl: dashboardResult.restaurant?.coverImageUrl || "",
         slug: dashboardResult.restaurant?.slug || "",
         publicOrderingEnabled: Boolean(dashboardResult.restaurant?.publicOrderingEnabled),
         pickupEnabled: Boolean(dashboardResult.restaurant?.pickupEnabled)
@@ -501,6 +503,7 @@ export default function OwnerPage({ session, onLogout }) {
       );
       setSettingsForm({
         logoUrl: result.restaurant?.logoUrl || "",
+        coverImageUrl: result.restaurant?.coverImageUrl || "",
         slug: result.restaurant?.slug || "",
         publicOrderingEnabled: Boolean(result.restaurant?.publicOrderingEnabled),
         pickupEnabled: Boolean(result.restaurant?.pickupEnabled)
@@ -1252,6 +1255,21 @@ export default function OwnerPage({ session, onLogout }) {
             <Field hint={t("common.optional")} label={t("owner.settings.logoUrl")}>
               <input className={fieldStyles} value={settingsForm.logoUrl} onChange={(event) => updateSettingsField("logoUrl", event.target.value)} />
             </Field>
+            <Field hint={t("owner.settings.coverImageUrlHint")} label={t("owner.settings.coverImageUrl")}>
+              <input
+                className={fieldStyles}
+                placeholder="https://..."
+                value={settingsForm.coverImageUrl}
+                onChange={(event) => updateSettingsField("coverImageUrl", event.target.value)}
+              />
+            </Field>
+            {settingsForm.coverImageUrl ? (
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                <img alt={t("owner.settings.coverPreview")} className="h-36 w-full object-cover" src={settingsForm.coverImageUrl} />
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">{t("owner.settings.coverEmpty")}</p>
+            )}
             <Field label={t("owner.settings.pickupSlug")}>
               <input className={fieldStyles} value={settingsForm.slug} onChange={(event) => updateSettingsField("slug", event.target.value)} />
             </Field>

@@ -153,9 +153,18 @@ export default function WaiterPage({ session, onLogout }) {
       setTables(nextTables);
       setProducts(productsResult.products || []);
 
-      const nextOpenTableId = nextTables.find((table) => table.id === openTableId)?.id || "";
-      setOpenTableId(nextOpenTableId);
-      setDraftItems(buildDraftFromOrder(nextTables.find((table) => table.id === nextOpenTableId)?.pendingOrder));
+      setOpenTableId((currentTableId) => {
+        if (!currentTableId) {
+          return "";
+        }
+        const stillOpen = nextTables.find((table) => table.id === currentTableId);
+        if (!stillOpen) {
+          setDraftItems([]);
+          return "";
+        }
+        setDraftItems(buildDraftFromOrder(stillOpen.pendingOrder));
+        return currentTableId;
+      });
     } catch (requestError) {
       setError(requestError.message);
     } finally {

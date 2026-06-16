@@ -32,6 +32,7 @@ function mapRestaurant(restaurant) {
     slug: restaurant.slug,
     phone: restaurant.phone,
     logoUrl: restaurant.logoUrl,
+    coverImageUrl: restaurant.coverImageUrl,
     publicOrderingEnabled: restaurant.publicOrderingEnabled,
     pickupEnabled: restaurant.pickupEnabled
   };
@@ -250,14 +251,15 @@ router.patch("/restaurant", async (req, res, next) => {
 
     const body = req.body || {};
     const hasLogoUrl = Object.prototype.hasOwnProperty.call(body, "logoUrl");
+    const hasCoverImageUrl = Object.prototype.hasOwnProperty.call(body, "coverImageUrl");
     const hasSlug = Object.prototype.hasOwnProperty.call(body, "slug");
     const hasPublicOrderingEnabled = Object.prototype.hasOwnProperty.call(body, "publicOrderingEnabled");
     const hasPickupEnabled = Object.prototype.hasOwnProperty.call(body, "pickupEnabled");
 
-    if (!hasLogoUrl && !hasSlug && !hasPublicOrderingEnabled && !hasPickupEnabled) {
+    if (!hasLogoUrl && !hasCoverImageUrl && !hasSlug && !hasPublicOrderingEnabled && !hasPickupEnabled) {
       return res
         .status(400)
-        .json({ message: "Provide at least one of: logoUrl, slug, publicOrderingEnabled, pickupEnabled." });
+        .json({ message: "Provide at least one of: logoUrl, coverImageUrl, slug, publicOrderingEnabled, pickupEnabled." });
     }
 
     const data = {};
@@ -268,6 +270,14 @@ router.patch("/restaurant", async (req, res, next) => {
         return res.status(400).json({ message: error });
       }
       data.logoUrl = normalizedLogoUrl;
+    }
+
+    if (hasCoverImageUrl) {
+      const { value: normalizedCoverImageUrl, error } = normalizeOptionalHttpUrl(body.coverImageUrl);
+      if (error) {
+        return res.status(400).json({ message: error });
+      }
+      data.coverImageUrl = normalizedCoverImageUrl;
     }
 
     if (hasSlug) {
